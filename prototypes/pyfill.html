@@ -1,0 +1,545 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PyFill (prototype)</title>
+<style>body{font-family:sans-serif;max-width:700px;margin:20px auto;padding:0 12px;background:#fff;color:#000}pre{background:#eee;padding:10px;font-size:16px;overflow-x:auto}
+button{font-size:16px;margin:4px;padding:8px 14px}#opts button{min-width:70px}</style></head><body>
+<h1>PyFill <small>(prototype)</small></h1>
+<div id="intro"><p>One number in each program is hidden. Pick the number that makes the program print the target. 20 questions. Difficulty adjusts to you.</p>
+<p>Participant code (optional): <input id="who"></p><button id="startBtn">Start</button></div>
+<div id="game" style="display:none"><p id="info"></p><pre id="code"></pre><p>The program must print: <b id="target"></b></p>
+<div id="opts"></div><p id="fb"></p><button id="nextBtn" style="display:none">Next</button></div>
+<div id="end" style="display:none"><h2>Done</h2><p id="summary"></p><button id="csvBtn">Download CSV</button><button id="csvAllBtn">Download all runs</button><button id="againBtn">Play again</button></div>
+<script>
+// ===== name (change here to rename the game everywhere) =====
+const NAME=['Py','Fill'];
+const NAME_FULL='PyFill';
+const NAME_SLUG='pyfill';
+const LOG_KEY='pyfill_log_v1';
+// ==GEN START==
+// ---------- utilities ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let RNG=Math.random;
+const rint=(a,b)=>a+Math.floor(RNG()*(b-a+1));
+const pick=a=>a[Math.floor(RNG()*a.length)];
+const chance=p=>RNG()<p;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(RNG()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const MAX_D=15;
+
+// ---------- difficulty settings: what a generated program may contain at each level ----------
+// D1: assignments + arithmetic · D2: += -= *= · D3: if/else · D4: for loops · D5: elif, while, // and %
+// D6: lists · D7: 'and' conditions · D8: nested loops · higher levels: longer programs, deeper nesting, more variables
+function cfg(D){
+  return{D,
+    nVars:D<=2?2:D<=5?3:4,
+    nStmts:D<=2?D+1:Math.min(5,2+Math.floor(D*0.25)),maxLines:Math.min(18,5+D),minLines:3+Math.floor(D*0.5),
+    depthMax:D<=2?0:D<=4?1:D<=9?2:3,
+    aug:D>=2, ifs:D>=3, fors:D>=4, elif:D>=5, whiles:D>=5, divmod:D>=5, lists:D>=6, and:D>=7, nested:D>=8,
+    maxNum:D<=3?9:D<=7?12:20, maxIter:D<=5?4:D<=9?5:6,
+    maxSteps:12+7*D};
+}
+
+// ---------- program generator: builds a small Python program as a tree, then prints it ----------
+const VARNAMES=['x','y','z','n'];
+function genProgram(D){
+  const c=cfg(D),vars=VARNAMES.slice(0,c.nVars),useList=c.lists&&chance(0.7);
+  const loopVars=['i','j','k'];
+  const init=vars.map(v=>({t:'assign',v,e:{t:'num',v:rint(0,c.maxNum)}}));
+  if(useList)init.push({t:'list',v:'nums',items:Array.from({length:rint(2,4)},()=>rint(1,9))});
+  let loopDepth=0;
+  function atom(scope){ // a variable (or loop variable) or a small number
+    const pool=[...vars,...scope];
+    if(chance(0.35))return{t:'num',v:rint(1,c.maxNum)};
+    return{t:'var',v:pick(pool)};
+  }
+  function expr(scope){
+    const r=RNG();
+    if(useList&&r<0.15)return chance(0.5)?{t:'len',v:'nums'}:{t:'idx',v:'nums',i:{t:'num',v:0}};
+    if(r<0.45)return atom(scope);
+    const ops=['+','-'];if(c.D>=2)ops.push('*');if(c.divmod)ops.push('//','%');
+    const op=pick(ops);
+    if(op==='//'||op==='%')return{t:'bin',op,a:{t:'var',v:pick([...vars,...scope])},b:{t:'num',v:rint(2,5)}};
+    if(op==='*')return{t:'bin',op,a:atom(scope),b:{t:'num',v:rint(2,3)}};
+    const a=atom(scope);let b=atom(scope);
+    if(a.t==='var'&&b.t==='var'&&a.v===b.v)b={t:'num',v:rint(1,c.maxNum)};
+    return{t:'bin',op,a,b};
+  }
+  function cond(scope){
+    const mk=()=>{const a=pick([...vars,...scope]);let b=chance(0.6)?{t:'num',v:rint(1,c.maxNum)}:{t:'var',v:pick(vars)};
+      if(b.t==='var'&&b.v===a)b={t:'num',v:rint(1,c.maxNum)};
+      return{t:'cmp',op:pick(['>','<','>=','<=','==','!=']),a:{t:'var',v:a},b};};
+    if(c.and&&chance(0.4))return{t:'logic',op:pick(['and','or']),a:mk(),b:mk()};
+    if(c.divmod&&chance(0.25))return{t:'cmp',op:'==',a:{t:'bin',op:'%',a:{t:'var',v:pick([...vars,...scope])},b:{t:'num',v:2}},b:{t:'num',v:pick([0,1])}};
+    return mk();
+  }
+  function simple(scope){
+    if(useList&&chance(0.25))return{t:'append',v:'nums',e:expr(scope)};
+    if(c.aug&&chance(0.55)){const v=pick(vars),op=pick(c.D>=3?['+=','-=','*=']:['+=','-=']);
+      let e=op==='*='?{t:'num',v:rint(2,3)}:expr(scope);
+      if(JSON.stringify(e).includes('"v":"'+v+'"'))e={t:'num',v:rint(1,c.maxNum)};
+      return{t:'aug',v,op,e};}
+    const v=pick(vars);let e=expr(scope);
+    if(e.t==='var'&&e.v===v)e={t:'bin',op:'+',a:e,b:{t:'num',v:rint(1,c.maxNum)}};
+    return{t:'assign',v,e};
+  }
+  function block(depth,n,scope){
+    const out=[];
+    for(let s=0;s<n;s++){
+      const canNest=depth<c.depthMax,r=RNG();
+      if(canNest&&c.fors&&r<0.3&&(loopDepth===0||c.nested)){
+        const lv=loopVars[loopDepth];loopDepth++;
+        const it=rint(2,loopDepth>1?3:c.maxIter),start=chance(0.5)?0:rint(1,3),step=c.D>=6&&chance(0.3)?2:1;
+        out.push({t:'for',v:lv,start,stop:start+it*step,step,body:block(depth+1,rint(1,2),[...scope,lv])});loopDepth--;
+      }else if(canNest&&c.whiles&&loopDepth===0&&r<0.42){
+        const v=pick(vars);loopDepth++;
+        const body=block(depth+1,rint(0,1),scope).filter(st=>!(st.v===v));
+        body.push({t:'aug',v,op:'+=',e:{t:'num',v:rint(1,4)}});
+        out.push({t:'while',cond:{t:'cmp',op:pick(['<','<=']),a:{t:'var',v},b:{t:'num',v:rint(5,c.maxNum+10)}},body});loopDepth--;
+      }else if(canNest&&c.ifs&&r<0.6){
+        const st={t:'if',cond:cond(scope),body:block(depth+1,rint(1,2),scope),elifs:[],els:null};
+        if(c.elif&&chance(0.35))st.elifs.push({cond:cond(scope),body:block(depth+1,1,scope)});
+        if(chance(0.6))st.els=block(depth+1,1,scope);
+        out.push(st);
+      }else out.push(simple(scope));
+    }
+    return out;
+  }
+  const body=block(0,c.nStmts,[]);
+  // what to print: a variable the program actually changes (the last one changed, most of the time)
+  const changed=[];walk(body,s=>{if((s.t==='assign'||s.t==='aug')&&vars.includes(s.v))changed.push(s.v);});
+  let printE;
+  const r=RNG(),target=changed.length?(chance(0.7)?changed[changed.length-1]:pick(changed)):pick(vars);
+  if(useList&&r<0.3)printE=pick([{t:'len',v:'nums'},{t:'sum',v:'nums'},{t:'idx',v:'nums',i:{t:'num',v:-1}}]);
+  else if(useList&&r<0.4)printE={t:'var',v:'nums'};
+  else if(c.D>=6&&r<0.55){let o=pick(vars.filter(v=>v!==target));printE={t:'pair',a:o,b:target};}
+  else printE={t:'var',v:target};
+  return{D,init,body,printE,useList,cfg:c};
+}
+
+// ---------- Python source code from the tree ----------
+function exprSrc(e){
+  switch(e.t){
+    case'num':return String(e.v);
+    case'var':return e.v;
+    case'len':return`len(${e.v})`;
+    case'sum':return`sum(${e.v})`;
+    case'idx':return`${e.v}[${exprSrc(e.i)}]`;
+    case'bin':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'cmp':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'logic':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'pair':return`${e.a}, ${e.b}`;
+  }
+}
+function toSource(P){
+  const L=[],ind=d=>'    '.repeat(d);
+  const emit=(st,d)=>{
+    switch(st.t){
+      case'assign':L.push(ind(d)+`${st.v} = ${exprSrc(st.e)}`);break;
+      case'list':L.push(ind(d)+`${st.v} = [${st.items.join(', ')}]`);break;
+      case'aug':L.push(ind(d)+`${st.v} ${st.op} ${exprSrc(st.e)}`);break;
+      case'append':L.push(ind(d)+`${st.v}.append(${exprSrc(st.e)})`);break;
+      case'for':{const r=st.step!==1?`range(${st.start}, ${st.stop}, ${st.step})`:st.start!==0?`range(${st.start}, ${st.stop})`:`range(${st.stop})`;
+        L.push(ind(d)+`for ${st.v} in ${r}:`);st.body.forEach(s=>emit(s,d+1));break;}
+      case'while':L.push(ind(d)+`while ${exprSrc(st.cond)}:`);st.body.forEach(s=>emit(s,d+1));break;
+      case'if':L.push(ind(d)+`if ${exprSrc(st.cond)}:`);st.body.forEach(s=>emit(s,d+1));
+        for(const el of st.elifs){L.push(ind(d)+`elif ${exprSrc(el.cond)}:`);el.body.forEach(s=>emit(s,d+1));}
+        if(st.els){L.push(ind(d)+'else:');st.els.forEach(s=>emit(s,d+1));}break;
+    }
+  };
+  P.init.forEach(s=>emit(s,0));P.body.forEach(s=>emit(s,0));
+  L.push(`print(${exprSrc(P.printE)})`);
+  return L.join('\n');
+}
+
+// ---------- interpreter (Python semantics for ints, // and %) ----------
+// bug modes simulate common tracing mistakes; they produce the wrong answer options
+class Halt extends Error{}
+function run(P,bug){
+  const env={},state={steps:0,flipped:false,augDone:false};
+  const fdiv=(a,b)=>Math.floor(a/b),fmod=(a,b)=>a-b*Math.floor(a/b);
+  const val=e=>{
+    switch(e.t){
+      case'num':return e.v;
+      case'var':if(!(e.v in env))throw new Halt('undef');return env[e.v];
+      case'len':return env[e.v].length;
+      case'sum':return env[e.v].reduce((s,x)=>s+x,0);
+      case'idx':{const L=env[e.v],i=val(e.i),k=i<0?L.length+i:i;if(k<0||k>=L.length)throw new Halt('index');return L[k];}
+      case'bin':{const a=val(e.a),b=val(e.b);return e.op==='+'?a+b:e.op==='-'?a-b:e.op==='*'?a*b:e.op==='//'?fdiv(a,b):fmod(a,b);}
+      case'cmp':{const a=val(e.a),b=val(e.b);let op=e.op;if(bug==='extra'&&e._loop&&op==='<')op='<=';
+        return op==='>'?a>b:op==='<'?a<b:op==='>='?a>=b:op==='<='?a<=b:op==='=='?a===b:a!==b;}
+      case'logic':{const a=val(e.a),b=val(e.b);return e.op==='and'?a&&b:a||b;}
+    }
+  };
+  const chk=v=>{if(typeof v==='number'&&(Math.abs(v)>999||!Number.isInteger(v)))throw new Halt('big');return v;};
+  const exec=(st)=>{
+    if(++state.steps>400)throw new Halt('steps');
+    switch(st.t){
+      case'assign':env[st.v]=chk(val(st.e));break;
+      case'list':env[st.v]=st.items.slice();break;
+      case'aug':{if(!(st.v in env))throw new Halt('undef');const e=chk(val(st.e));
+        if(bug==='aug'&&!state.augDone){state.augDone=true;env[st.v]=e;break;}
+        env[st.v]=chk(st.op==='+='?env[st.v]+e:st.op==='-='?env[st.v]-e:env[st.v]*e);break;}
+      case'append':env[st.v].push(chk(val(st.e)));if(env[st.v].length>10)throw new Halt('long');break;
+      case'for':{const stop=bug==='extra'?st.stop+st.step:st.stop;
+        for(let i=st.start;i<stop;i+=st.step){env[st.v]=i;st.body.forEach(exec);state.steps++;}break;}
+      case'while':{st.cond._loop=true;let n=0;while(val(st.cond)){if(++n>12)throw new Halt('while');st.body.forEach(exec);state.steps++;}break;}
+      case'if':{let c=val(st.cond);if(bug==='flip'&&!state.flipped){state.flipped=true;c=!c;}
+        if(c){st.body.forEach(exec);break;}
+        for(const el of st.elifs)if(val(el.cond)){el.body.forEach(exec);return;}
+        if(st.els)st.els.forEach(exec);break;}
+    }
+  };
+  P.init.forEach(exec);
+  const body=bug==='skip'?P.body.slice(0,-1):P.body;
+  body.forEach(exec);
+  const pe=P.printE;
+  const show=v=>Array.isArray(v)?'['+v.join(', ')+']':String(v);
+  const out=pe.t==='pair'?`${show(env[pe.a])} ${show(env[pe.b])}`:show(val(pe));
+  return{out,steps:state.steps,env};
+}
+function walk(stmts,f,d=0){for(const s of stmts){f(s,d);if(s.body)walk(s.body,f,d+1);if(s.elifs)s.elifs.forEach(e=>walk(e.body,f,d+1));if(s.els)walk(s.els,f,d+1);}}
+function features(P,steps,src){
+  let depth=0,loops=0,conds=0,nested=false;
+  walk(P.body,(s,d)=>{if(s.t==='for'||s.t==='while'){loops++;if(d>0)nested=true;}if(s.t==='if')conds++;depth=Math.max(depth,d+((s.body)?1:0));});
+  return{lines:src.split('\n').length,depth,loops,conds,steps,hasList:P.useList?1:0,nested:nested?1:0};
+}
+// the main concept of a challenge (used for hints and as the BKT skill)
+function mainConcept(P,f){
+  const c=P.cfg;let k='arithmetic';
+  walk(P.body,s=>{});
+  if(P.body.some(s=>s.t==='aug'))k='assignment';
+  if(f.conds)k='conditionals';
+  if(f.loops)k=P.body.some(s=>s.t==='while')?'while-loops':'for-loops';
+  if(f.hasList)k='lists';
+  if(f.nested||f.depth>=2&&f.loops)k='nested';
+  return k;
+}
+const CONCEPTS={
+  'arithmetic':{name:'Variables & arithmetic',tip:'Go line by line and write down each variable\'s value after every line.'},
+  'assignment':{name:'Updating variables',tip:'x += 3 means x = x + 3. Use the value x has at that moment.'},
+  'conditionals':{name:'Conditionals',tip:'Check the condition with the current values. Only one branch runs: the first true one, or else.'},
+  'for-loops':{name:'For loops',tip:'range(a, b) stops before b. List every value the loop variable takes, then run the body once for each.'},
+  'while-loops':{name:'While loops',tip:'Check the condition before every pass and stop as soon as it is false.'},
+  'lists':{name:'Lists',tip:'append adds to the end, len counts items, index 0 is the first item and -1 the last.'},
+  'nested':{name:'Nested blocks',tip:'The inner block runs completely for each pass of the outer loop. Keep a small table of values.'},
+};
+// generate a full challenge at difficulty D (retries until the program is valid and traceable)
+function makeChallenge(D){
+  const c=cfg(D);
+  for(let tries=0;tries<400;tries++){
+    const P=genProgram(D);let r;
+    try{r=run(P);}catch(e){continue;}
+    if(r.steps>c.maxSteps)continue;
+    const src=toSource(P),f=features(P,r.steps,src);
+    // each level must actually use its new construct
+    if(D>=3&&D<=4&&!f.conds)continue;
+    if(D>=4&&!f.loops)continue;
+    if(D>=6&&D<=7&&!f.hasList&&!f.conds)continue;
+    if(D>=8&&!f.nested&&f.depth<2)continue;
+    if(D>=10&&f.depth<2)continue;
+    if(f.lines<c.minLines||f.lines>c.maxLines)continue;
+    // the printed value should depend on the program, not just the first line
+    const trivial=P.printE.t==='var'&&P.init.some(s=>s.v===P.printE.v&&s.e&&String(s.e.v)===r.out);
+    if(trivial)continue;
+    // wrong options from common tracing mistakes, then near misses
+    const wrong=[];
+    for(const bug of['extra','flip','skip','aug']){try{const o=run(P,bug).out;if(o!==r.out&&!wrong.includes(o))wrong.push(o);}catch(e){}}
+    const n=Number(r.out);
+    for(const d of[1,-1,2,-2,3,10]){if(wrong.length>=6)break;if(!isNaN(n)&&r.out.trim()!==''&&!r.out.includes(' ')){const s=String(n+d);if(!wrong.includes(s)&&s!==r.out)wrong.push(s);}}
+    if(wrong.length<3)continue;
+    const chosen=shuffle(wrong.slice(0,4)).slice(0,3);
+    return{D,P,code:src,answer:r.out,options:shuffle([r.out,...chosen]),feat:f,concept:mainConcept(P,f)};
+  }
+  throw new Error('could not generate D='+D);
+}
+// ==GEN END==
+const clone=o=>JSON.parse(JSON.stringify(o));
+// quests use only programs where every line matters: deleting any line changes the output
+function stmtLists(P){const out=[P.init,P.body];const go=a=>a.forEach(s=>{if(s.body){out.push(s.body);go(s.body);}if(s.elifs)s.elifs.forEach(e=>{out.push(e.body);go(e.body);});if(s.els){out.push(s.els);go(s.els);}});go(P.init);go(P.body);return out;}
+function everyLineMatters(P,base){
+  const L=stmtLists(P);
+  for(let li=0;li<L.length;li++)for(let i=0;i<L[li].length;i++){
+    if(li>=2&&L[li].length===1)continue; // a block body can't be empty; removing the whole block is tested in its parent list
+    const Q=clone(P),LQ=stmtLists(Q);LQ[li].splice(i,1);
+    let out;try{out=run(Q).out;}catch(e){continue;}
+    if(out===base)return false;
+  }
+  return true;
+}
+// remove lines that don't change the output, one at a time, until every line matters
+function prune(P,base){
+  for(let guard=0;guard<40;guard++){const L=stmtLists(P);let cut=null;
+    for(let li=0;li<L.length&&!cut;li++)for(let i=0;i<L[li].length;i++){
+      if(li>=2&&L[li].length===1)continue;const Q=clone(P);stmtLists(Q)[li].splice(i,1);
+      let out;try{out=run(Q).out;}catch(e){continue;}if(out===base){cut=Q;break;}}
+    if(!cut)return P;P=cut;}
+  return P;
+}
+function makeCleanChallenge(D){
+  const cf=cfg(D);let fallback=null;
+  for(let t=0;t<60;t++){
+    let c;try{c=makeChallenge(D);}catch(e){continue;}if(!fallback)fallback=c;
+    const P=prune(clone(c.P),c.answer);let r;try{r=run(P);}catch(e){continue;}
+    if(r.out!==c.answer)continue;
+    const src=toSource(P),f=features(P,r.steps,src);
+    if(D>=3&&D<=4&&!f.conds)continue;
+    if(D>=4&&!f.loops)continue;
+    if(D>=8&&!f.nested&&f.depth<2)continue;
+    if(D>=10&&f.depth<2)continue;
+    if(f.lines<Math.max(4,cf.minLines-2))continue;
+    if(!everyLineMatters(P,c.answer))continue;
+    return Object.assign({},c,{P,code:src,feat:f,concept:mainConcept(P,f)});
+  }
+  return fallback||makeCleanChallenge(Math.max(1,D-1));
+}
+
+
+// ---------- MLP: inputs → 16 ReLU → 8 ReLU → 1 sigmoid, Adam, binary cross-entropy ----------
+class MLP{
+  constructor(sizes,rnd){this.sizes=sizes;this.L=sizes.length-1;this.t=0;this.W=[];this.b=[];this.mW=[];this.vW=[];this.mb=[];this.vb=[];
+    for(let l=0;l<this.L;l++){const nI=sizes[l],nO=sizes[l+1],lim=Math.sqrt(6/nI)*(l===this.L-1?0.5:1);
+      this.W.push(Float64Array.from({length:nI*nO},()=>(rnd()*2-1)*lim));this.b.push(new Float64Array(nO).fill(l<this.L-1?0.01:0));
+      this.mW.push(new Float64Array(nI*nO));this.vW.push(new Float64Array(nI*nO));this.mb.push(new Float64Array(nO));this.vb.push(new Float64Array(nO));}}
+  forward(x){const acts=[x];for(let l=0;l<this.L;l++){const nI=this.sizes[l],nO=this.sizes[l+1],a=acts[l],W=this.W[l],out=new Float64Array(nO);
+      for(let o=0;o<nO;o++){let z=this.b[l][o];for(let i=0;i<nI;i++)z+=W[o*nI+i]*a[i];out[o]=l<this.L-1?(z>0?z:0):1/(1+Math.exp(-z));}acts.push(out);}return acts;}
+  predict(x){return this.forward(x)[this.L][0];}
+  accum(x,y,gW,gb){const acts=this.forward(x);let delta=[acts[this.L][0]-y]; // dBCE/dz for a sigmoid output
+    for(let l=this.L-1;l>=0;l--){const nI=this.sizes[l],nO=this.sizes[l+1],a=acts[l],W=this.W[l];
+      for(let o=0;o<nO;o++){gb[l][o]+=delta[o];for(let i=0;i<nI;i++)gW[l][o*nI+i]+=delta[o]*a[i];}
+      if(l>0){const nd=new Float64Array(nI);for(let i=0;i<nI;i++){if(a[i]<=0)continue;let s=0;for(let o=0;o<nO;o++)s+=W[o*nI+i]*delta[o];nd[i]=s;}delta=nd;}}}
+  zeros(){return[this.W.map(w=>new Float64Array(w.length)),this.b.map(b=>new Float64Array(b.length))];}
+  step(gW,gb,n,lr){this.t++;const b1=.9,b2=.999,eps=1e-8,c1=1-Math.pow(b1,this.t),c2=1-Math.pow(b2,this.t);
+    const upd=(P,G,M,V)=>{for(let k=0;k<P.length;k++){const g=G[k]/n;M[k]=b1*M[k]+(1-b1)*g;V[k]=b2*V[k]+(1-b2)*g*g;P[k]-=lr*(M[k]/c1)/(Math.sqrt(V[k]/c2)+eps);}};
+    for(let l=0;l<this.L;l++){upd(this.W[l],gW[l],this.mW[l],this.vW[l]);upd(this.b[l],gb[l],this.mb[l],this.vb[l]);}}
+  fit(X,Y,{epochs=15,batch=32,lr=0.003,rnd=Math.random}={}){const idx=X.map((_,i)=>i);
+    for(let ep=0;ep<epochs;ep++){for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+      for(let s=0;s<idx.length;s+=batch){const[gW,gb]=this.zeros(),e=Math.min(idx.length,s+batch);for(let k=s;k<e;k++)this.accum(X[idx[k]],Y[idx[k]],gW,gb);this.step(gW,gb,e-s,lr);}}}
+  trainOne(x,y,lr){const[gW,gb]=this.zeros();this.accum(x,y,gW,gb);this.step(gW,gb,1,lr);}
+}
+// ---------- baseline: logistic regression on the same features ----------
+class LogReg{
+  constructor(n){this.w=new Float64Array(n);this.b=0;}
+  predict(x){let z=this.b;for(let i=0;i<x.length;i++)z+=this.w[i]*x[i];return 1/(1+Math.exp(-z));}
+  trainOne(x,y,lr){const g=this.predict(x)-y;for(let i=0;i<x.length;i++)this.w[i]-=lr*g*x[i];this.b-=lr*g;}
+  fit(X,Y,{epochs=20,lr=0.05,rnd=Math.random}={}){const idx=X.map((_,i)=>i);
+    for(let ep=0;ep<epochs;ep++){for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+      const a=lr*(1-ep/(epochs*1.5));for(const i of idx)this.trainOne(X[i],Y[i],a);}}
+}
+// ---------- baseline: Bayesian Knowledge Tracing, one skill per concept tag, fitted by grid search ----------
+const BKT_GRID=(()=>{const g=[];for(const L0 of[.1,.3,.5,.7,.9])for(const T of[.02,.05,.1,.2,.3])for(const S of[.05,.1,.2,.3])for(const G of[.1,.2,.3,.4])g.push({L0,T,S,G});return g;})();
+function bktSeqs(rows){const m=new Map();for(const r of rows){const k=r.learner+'|'+r.concept;if(!m.has(k))m.set(k,{c:r.concept,ys:[]});m.get(k).ys.push(r.y);}return[...m.values()];}
+function bktLL(seqs,P){let ll=0;for(const s of seqs){let L=P.L0;for(const y of s.ys){const pc=L*(1-P.S)+(1-L)*P.G;ll+=y?Math.log(pc):Math.log(1-pc);L=y?L*(1-P.S)/pc:L*P.S/(1-pc);L=L+(1-L)*P.T;}}return ll;}
+function bktFitOne(seqs){let best=BKT_GRID[0],bl=-Infinity;for(const P of BKT_GRID){const l=bktLL(seqs,P);if(l>bl){bl=l;best=P;}}return best;}
+function fitBKT(rows){const seqs=bktSeqs(rows),by={};for(const s of seqs)(by[s.c]=by[s.c]||[]).push(s);
+  const model={global:bktFitOne(seqs),byC:{}};for(const c in by)model.byC[c]=bktFitOne(by[c]);return model;}
+const bktParams=(m,c)=>m.byC[c]||m.global; // a concept never seen in training falls back to the global parameters
+function bktProb(m,state,c){const P=bktParams(m,c),L=state[c]??P.L0;return L*(1-P.S)+(1-L)*P.G;}
+function bktUpdate(m,state,c,y){const P=bktParams(m,c);let L=state[c]??P.L0;const pc=L*(1-P.S)+(1-L)*P.G;L=y?L*(1-P.S)/pc:L*P.S/(1-pc);state[c]=L+(1-L)*P.T;}
+function bktPredictRows(m,rows){const st={};return rows.map(r=>{const s=(st[r.learner]=st[r.learner]||{});const p=bktProb(m,s,r.concept);bktUpdate(m,s,r.concept,r.y);return p;});}
+
+// ---------- metrics ----------
+function auc(ps,ys){const idx=ps.map((_,i)=>i).sort((a,b)=>ps[a]-ps[b]);let sumPos=0,nPos=0;
+  for(let i=0;i<idx.length;){let j=i;while(j<idx.length&&ps[idx[j]]===ps[idx[i]])j++;const avg=(i+1+j)/2;for(let k=i;k<j;k++)if(ys[idx[k]]){sumPos+=avg;nPos++;}i=j;}
+  const nNeg=ys.length-nPos;return nPos&&nNeg?(sumPos-nPos*(nPos+1)/2)/(nPos*nNeg):NaN;}
+function metrics(ps,ys){let tp=0,fp=0,fn=0,tn=0,br=0;
+  ps.forEach((p,i)=>{const y=ys[i],h=p>=.5;if(h&&y)tp++;else if(h)fp++;else if(y)fn++;else tn++;br+=(p-y)*(p-y);});
+  const n=ys.length,prec=tp+fp?tp/(tp+fp):0,rec=tp+fn?tp/(tp+fn):0;
+  return{n,acc:n?(tp+tn)/n:NaN,prec,rec,f1:prec+rec?2*prec*rec/(prec+rec):0,auc:auc(ps,ys),brier:n?br/n:NaN};}
+
+
+// ---------- features (same for simulated learners and live play) ----------
+const FEATS=[['f_acc_all','Overall accuracy'],['f_acc_recent','Recent accuracy (last 5)'],['f_acc_near','Accuracy at similar difficulty'],['f_last','Last challenge solved?'],
+  ['f_time','Recent time used'],['f_streak','Current streak'],['f_max_level','Highest level solved'],['f_recent_level','Recent average level'],
+  ['f_hint_rate','Recent hint use'],['f_retry_rate','Recent retries'],['f_acc_concept','Accuracy on this concept'],
+  ['f_level','Challenge level'],['f_lines','Lines of code'],['f_depth','Nesting depth'],['f_loops','Loops'],['f_steps','Steps to trace'],['f_has_list','Uses a list?'],['f_jump','Level jump vs. recent']];
+const NF=FEATS.length;
+// hist items: {D, concept, y, tfrac, hint, attempts}   y = solved on the first try without a hint
+function featurize(hist,ch){
+  const n=hist.length,sm=a=>(a.filter(h=>h.y).length+1)/(a.length+2),rec=hist.slice(-5);
+  let streak=0;for(let i=n-1;i>=0&&hist[i].y;i--)streak++;
+  let hi=0;for(const h of hist)if(h.y&&h.D>hi)hi=h.D;
+  const avg=f=>rec.length?rec.reduce((s,h)=>s+f(h),0)/rec.length:0;
+  const recD=rec.length?avg(h=>h.D):1,f=ch.feat;
+  return[
+    sm(hist),sm(rec),sm(hist.filter(h=>Math.abs(h.D-ch.D)<=1)),n?hist[n-1].y:0.5,
+    rec.length?avg(h=>h.tfrac):0.5,Math.min(streak,5)/5,hi/MAX_D,recD/MAX_D,
+    avg(h=>h.hint),avg(h=>Math.max(1,h.attempts)>1?1:0),sm(hist.filter(h=>h.concept===ch.concept)),
+    ch.D/MAX_D,Math.min(1,f.lines/18),f.depth/3,Math.min(1,f.loops/4),Math.min(1,f.steps/60),f.hasList,Math.max(-1,Math.min(1,(ch.D-recD)/5)),
+  ];
+}
+function ruleP(hist,ch){ // baseline: recent accuracy, lowered for each level above the last one
+  const rec=hist.slice(-5),acc=(rec.filter(h=>h.y).length+1)/(rec.length+2),last=hist.length?hist[hist.length-1].D:1;
+  return Math.min(.95,Math.max(.05,acc-0.12*(ch.D-last)));
+}
+
+// ---------- simulated learners (Thesis 1 allows synthetic data) ----------
+const sig=z=>1/(1+Math.exp(-z));
+function gauss(r){let u=0;while(!u)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());}
+// how hard a challenge really is for a simulated learner: mostly its level, plus its code features
+const effD=ch=>{const f=ch.feat;return 0.55*ch.D+0.06*f.steps+0.45*f.depth+0.3*f.hasList+0.15*f.conds;};
+function makeLearner(r){return{r,s:Math.max(0.5,Math.min(13,4+gauss(r)*1.8)),fam:{},lr:0.03+r()*0.08,hintProp:r()*0.5};}
+function learnerAttempt(L,ch){
+  const r=L.r,fam=L.fam[ch.concept]||0,dE=effD(ch);
+  const p=0.15+0.8*sig(1.1*(L.s-dE)+1.0+0.4*fam);
+  const hint=r()<L.hintProp*(1-p);
+  let y=0,solved=false,attempts=1;
+  if(hint){solved=r()<p+(1-p)*0.35;if(!solved){attempts=2;solved=r()<0.3+0.4*p;}}
+  else if(r()<p){y=1;solved=true;}
+  else{attempts=2;solved=r()<0.3+0.4*p;}
+  let tfrac=Math.min(1,Math.max(0.05,0.2+0.5*(1-p)+gauss(r)*0.1+(attempts-1)*0.15+(hint?0.1:0)));if(!solved&&r()<0.15)tfrac=1;
+  L.s+=solved?L.lr*(dE>=L.s-1?1.2:0.4):L.lr*0.15;
+  L.fam[ch.concept]=Math.min(1.5,fam+(solved?0.3:0.1));
+  return{y,solved,attempts,hint:hint?1:0,tfrac};
+}
+
+// ---------- a seeded pool of generated challenges, so simulations run fast ----------
+let POOL=null;
+function buildPool(seed,perLevel){
+  const keep=RNG;RNG=mulberry32(seed);const pool={};
+  for(let D=1;D<=MAX_D;D++){pool[D]=[];for(let k=0;k<perLevel;k++){const c=makeChallenge(D);pool[D].push({D,feat:c.feat,concept:c.concept});}}
+  RNG=keep;return pool;
+}
+const fromPool=(D,r)=>{const a=POOL[D];return a[Math.floor(r()*a.length)];};
+
+// ---------- level selection (shared by live play and the simulations) ----------
+const TARGET=0.85,BAND=0.10;
+function allowedLevels(hist){
+  if(!hist.length)return[1,2];
+  const last=hist[hist.length-1],D=last.D;let streak=0;for(let i=hist.length-1;i>=0&&hist[i].y;i--)streak++;
+  const L=last.y?[D,D+1].concat(streak>=3?[D+2]:[]):[D-1,D];
+  return[...new Set(L.map(v=>Math.max(1,Math.min(MAX_D,v))))];
+}
+function pickLevelWhy(mode,turn,hist,pf){
+  if(mode==='fixed')return{d:Math.min(MAX_D,1+Math.floor(turn/2)),why:'fixed schedule'};
+  const allowed=allowedLevels(hist),last=hist.length?hist[hist.length-1]:null;
+  let run=0;if(last)for(let i=hist.length-1;i>=0&&hist[i].y&&hist[i].D===last.D;i--)run++;
+  let streak=0;for(let i=hist.length-1;i>=0&&hist[i].y;i--)streak++;
+  const ok=allowed.filter(v=>pf(v)>=TARGET-BAND),best=ok.length?Math.max(...ok):null;
+  if(best!==null&&last&&best>last.D)return{d:best,why:'hardest level near the 85% target'};
+  // mastery step-up: 3 first-try solves in a row at this level -> go up; 6 in a row -> jump 2 levels
+  if(last&&run>=3&&last.D<MAX_D){
+    if(streak>=6&&allowed.includes(last.D+2)&&pf(last.D+2)>=0.5)return{d:last.D+2,why:'fast step-up (6 in a row)'};
+    if(pf(last.D+1)>=0.6)return{d:last.D+1,why:'mastery step-up (3 in a row)'};
+  }
+  if(best!==null)return{d:best,why:'hardest level near the 85% target'};
+  if(last&&last.y)return{d:last.D,why:'stay after a solve'};
+  return{d:allowed.reduce((b,v)=>pf(v)>pf(b)?v:b,allowed[0]),why:'highest predicted success'};
+}
+
+// ---------- MLP-driven selection (ours): no step-up rules ----------
+// The generator makes candidates at every level within 3 of the last challenge (a safety limit on jumps only).
+// The MLP predicts this learner's chance of solving each one, and the game serves the candidate whose
+// predicted first-try success is closest to the 85% target. Strong players get harder code because the model
+// predicts high success for them; struggling players get easier code because it predicts low success.
+const WINDOW=3,PER_LEVEL=2;
+function candidateLevels(hist){if(!hist.length)return[1]; // everyone starts at level 1
+  const ref=hist[hist.length-1].D,out=[];for(let v=Math.max(1,ref-WINDOW);v<=Math.min(MAX_D,ref+WINDOW);v++)out.push(v);return out;}
+function pickClosest(list,pf){let best=null,bs=Infinity,bp=0;for(const c of list){const p=pf(c),s=Math.abs(p-TARGET)-0.002*c.D;if(s<bs){bs=s;best=c;bp=p;}}return{c:best,p:bp};}
+
+// ---------- simulated datasets ----------
+// level choice varies by learner: random levels, levels near the learner's skill, a staircase from level 1,
+// or (with a model) the adaptive policy itself with 25% exploration
+function simulateDataset(nL,nA,r,startId,model){
+  const rows=[];
+  for(let i=0;i<nL;i++){
+    const L=makeLearner(r),hist=[],u=r(),how=model?'policy':u<1/3?'random':u<2/3?'near':'stair';let stair=1;
+    for(let t=0;t<nA;t++){
+      let ch;
+      if(how==='policy'){
+        const list=[];for(const v of candidateLevels(hist))for(let k=0;k<PER_LEVEL;k++)list.push(fromPool(v,r));
+        ch=r()<0.25?list[Math.floor(r()*list.length)]:pickClosest(list,c=>model.predict(featurize(hist,c))).c;
+      }else{
+        const d=how==='stair'?stair:Math.max(1,Math.min(MAX_D,how==='random'?1+Math.floor(r()*12):Math.round(L.s+gauss(r)*1.2)));
+        ch=fromPool(d,r);
+      }
+      const x=featurize(hist,ch),pRule=ruleP(hist,ch),o=learnerAttempt(L,ch);
+      rows.push({learner:startId+i,t,D:ch.D,concept:ch.concept,feat:ch.feat,x,y:o.y,pRule,solved:o.solved?1:0,attempts:o.attempts,hint:o.hint,tfrac:o.tfrac});
+      hist.push({D:ch.D,concept:ch.concept,y:o.y,tfrac:o.tfrac,hint:o.hint,attempts:o.attempts});
+      stair=Math.max(1,Math.min(MAX_D,stair+(o.y?1:-1)));
+    }
+  }
+  return rows;
+}
+// two stages: (1) random / near-skill / staircase learners; (2) learners playing under the adaptive policy with the stage-1 model
+function trainModels(r,nL,id0){
+  const s1=simulateDataset(nL,30,r,id0);
+  const test=x=>x.learner%5===0,m=new MLP([NF,16,8,1],r);
+  const tr1=s1.filter(x=>!test(x));m.fit(tr1.map(x=>x.x),tr1.map(x=>x.y),{epochs:10,rnd:r});
+  const s2=simulateDataset(nL,30,r,id0+5000,m);
+  const rows=[...s1,...s2],tr=rows.filter(x=>!test(x)),va=rows.filter(test);
+  m.fit(tr.map(x=>x.x),tr.map(x=>x.y),{epochs:6,rnd:r});
+  const l=new LogReg(NF);l.fit(tr.map(x=>x.x),tr.map(x=>x.y),{rnd:r});
+  return{mlp:m,lr:l,bkt:fitBKT(tr),tr,va};
+}
+
+// ---------- pretraining for live play ----------
+const pre=mulberry32(20261015);
+POOL=buildPool(777,40);
+let net=null,lin=null,bktModel=null,NET0=null,LIN0=null;const PRETRAIN={};
+// every run starts from the same pretrained models, so one player's run never changes the next player's game
+function cloneModel(m){const c=Object.create(Object.getPrototypeOf(m));for(const k of Object.keys(m)){const v=m[k];
+  c[k]=v instanceof Float64Array?v.slice():Array.isArray(v)?v.map(a=>a instanceof Float64Array?a.slice():a):v;}return c;}
+(function(){
+  const M=trainModels(pre,90,0);net=M.mlp;lin=M.lr;bktModel=M.bkt;NET0=cloneModel(net);LIN0=cloneModel(lin);
+  const ys=M.va.map(r=>r.y);
+  Object.assign(PRETRAIN,{n:M.tr.length,nL:new Set(M.tr.map(x=>x.learner)).size,nVal:M.va.length,
+    mlp:metrics(M.va.map(r=>net.predict(r.x)),ys),lr:metrics(M.va.map(r=>lin.predict(r.x)),ys),bkt:metrics(bktPredictRows(bktModel,M.va),ys),rule:metrics(M.va.map(r=>r.pRule),ys)});
+})();
+
+// ===================== PyFill: fill-in-the-blank prototype =====================
+// Task: one number in the program is hidden. Pick the number that makes the program print the target.
+const $=id=>document.getElementById(id),pc=v=>Math.round(v*100)+'%',TOTAL=20;
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function numNodes(P){const out=[];const ex=e=>{if(!e||typeof e!=='object')return;if(e.t==='num'){out.push(e);return;}['a','b','e','i'].forEach(k=>ex(e[k]));};
+  const st=s=>{if(s.e)ex(s.e);if(s.cond)ex(s.cond);if(s.t==='for')out.push({forNode:s});if(s.body)s.body.forEach(st);if(s.elifs)s.elifs.forEach(x=>{ex(x.cond);x.body.forEach(st);});if(s.els)s.els.forEach(st);};
+  P.init.forEach(st);P.body.forEach(st);return out;}
+function makeFill(D){
+  for(let t=0;t<40;t++){
+    let c;try{c=makeCleanChallenge(D);}catch(e){continue;}
+    const P=clone(c.P),nodes=numNodes(P).filter(n=>!n.forNode);if(!nodes.length)continue;
+    const n=nodes[Math.floor(Math.random()*nodes.length)],orig=n.v,target=c.answer;
+    const MARK=-987654;n.v=MARK;const src=toSource(P).replace(String(MARK),'___');n.v=orig;
+    const wrong=[];for(const d of shuffle([1,-1,2,-2,3,-3,4,5,10])){const v=orig+d;if(v<0&&orig>=0)continue;n.v=v;let out;try{out=run(P).out;}catch(e){out=null;}n.v=orig;
+      if(out!==target&&!wrong.includes(v))wrong.push(v);if(wrong.length>=3)break;}
+    if(wrong.length<3)continue;
+    return Object.assign({},c,{code:src,target,answer:String(orig),options:shuffle([String(orig),...wrong.map(String)])});
+  }
+  return null;
+}
+let S=null;
+function predictFor(hist,ch){const x=featurize(hist,ch);return{x,m:net.predict(x),l:lin.predict(x),b:bktProb(bktModel,S.bkt,ch.concept),r:ruleP(hist,ch)};}
+function choose(){
+  const list=[];for(const v of candidateLevels(S.hist))for(let k=0;k<PER_LEVEL;k++){const ch=makeFill(v);if(ch){ch.pred=predictFor(S.hist,ch);list.push(ch);}}
+  return pickClosest(list,ch=>ch.pred.m);
+}
+function start(){net=cloneModel(NET0);lin=cloneModel(LIN0);
+  S={id:Date.now().toString(36),who:($('who').value||'').trim().slice(0,20),turn:0,hist:[],rows:[],bkt:{},ok:0};
+  $('intro').style.display='none';$('game').style.display='';next();}
+function next(){
+  if(S.turn>=TOTAL)return end();
+  const{c,p}=choose();S.cur=Object.assign(c,{t0:performance.now(),tries:0});
+  $('info').textContent=`Question ${S.turn+1}/${TOTAL} · Level ${c.D} · ${CONCEPTS[c.concept].name} · model predicts ${pc(p)} chance you get it first try`;
+  $('code').innerHTML=esc(c.code).replace('___','<b style="background:#ff0;color:#000">&nbsp;?&nbsp;</b>');
+  $('target').textContent=c.target;$('fb').textContent='';$('nextBtn').style.display='none';
+  $('opts').innerHTML='';c.options.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>pickAns(o,b);$('opts').appendChild(b);});
+}
+function pickAns(o,b){
+  const c=S.cur;if(c.done)return;c.tries++;
+  if(o!==c.answer&&c.tries<2){b.disabled=true;$('fb').textContent='Wrong, one more try.';return;}
+  c.done=true;const secs=(performance.now()-c.t0)/1000,y=(o===c.answer&&c.tries===1)?1:0,solved=o===c.answer?1:0;
+  const tfrac=Math.min(1,secs/90);S.ok+=y;
+  const p=c.pred;S.rows.push({participant:S.who,session:S.id,turn:S.turn+1,level:c.D,concept:c.concept,lines:c.feat.lines,p_mlp:p.m.toFixed(3),p_lr:p.l.toFixed(3),p_bkt:p.b.toFixed(3),p_rule:p.r.toFixed(3),label_first_try:y,solved,attempts:c.tries,response_s:secs.toFixed(1),answer:c.answer,chosen:o,timestamp:new Date().toISOString()});
+  for(let k=0;k<3;k++){net.trainOne(p.x,y,0.002);lin.trainOne(p.x,y,0.02);}bktUpdate(bktModel,S.bkt,c.concept,y);
+  S.hist.push({D:c.D,concept:c.concept,y,tfrac,hint:0,attempts:c.tries});S.turn++;
+  $('fb').textContent=solved?(y?'Correct!':'Correct on the 2nd try.'):`Wrong. The answer was ${c.answer}.`;
+  [...$('opts').children].forEach(x=>x.disabled=true);$('nextBtn').style.display='';
+}
+function end(){
+  $('game').style.display='none';$('end').style.display='';
+  const n=S.rows.length,acc=k=>pc(S.rows.filter(r=>(+r['p_'+k]>=.5)===!!r.label_first_try).length/n);
+  $('summary').textContent=`First-try correct: ${S.ok}/${n}. Levels: ${S.rows.map(r=>r.level).join(', ')}. Prediction accuracy this run: MLP ${acc('mlp')}, LogReg ${acc('lr')}, BKT ${acc('bkt')}, Rule ${acc('rule')}.`;
+  try{const all=JSON.parse(localStorage.getItem(LOG_KEY)||'[]');localStorage.setItem(LOG_KEY,JSON.stringify(all.concat(S.rows)));}catch(e){}
+}
+function csv(rows,name){if(!rows.length)return;const k=Object.keys(rows[0]);const t=[k.join(','),...rows.map(r=>k.map(x=>JSON.stringify(r[x]??'')).join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=name;a.click();}
+$('startBtn').onclick=start;$('nextBtn').onclick=next;$('againBtn').onclick=()=>{$('end').style.display='none';$('intro').style.display='';};
+$('csvBtn').onclick=()=>csv(S.rows,`pyfill_${S.id}.csv`);
+$('csvAllBtn').onclick=()=>{let a=[];try{a=JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){}csv(a,'pyfill_all.csv');};
+</script></body></html>

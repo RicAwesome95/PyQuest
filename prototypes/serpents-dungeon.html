@@ -1,0 +1,1605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serpent &amp; Bean</title>
+<style>
+  :root{
+    --bg:#12141c; --panel:#1b1f2b; --panel2:#232839; --line:#33394f;
+    --text:#e8eaf2; --muted:#9aa1b8; --accent:#7cd4a8; --accent2:#f2c14e;
+    --bad:#ef6f6c; --blue:#79a8ff; --code:#0f1118;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  button{font:inherit;cursor:pointer}
+  .wrap{max-width:1220px;margin:0 auto;padding:16px;display:flex;gap:16px;align-items:flex-start}
+  .wrap.wide .side{display:none}
+  .main{flex:1;min-width:0}
+  .side{width:400px;flex-shrink:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  h1{font-size:34px;margin:0 0 4px;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  h2{font-size:15px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  h3{font-size:16px;margin:22px 0 8px}
+  .muted{color:var(--muted)}
+  .btn{background:var(--accent);color:#0c1a13;border:0;border-radius:10px;padding:12px 20px;font-weight:700}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.45;cursor:default;filter:none}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn.small{padding:7px 12px;font-size:13px}
+  .hidden{display:none!important}
+  .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px}
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:120px;background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;color:var(--text)}
+  .seg button.sel{border-color:var(--accent)}
+  .seg button b{display:block;margin-bottom:2px}
+  .seg button small{color:var(--muted)}
+  .seg.tabs button{flex:0 0 auto;min-width:0;padding:6px 12px;font-size:13px}
+  label.chk{display:flex;gap:8px;align-items:center;margin:8px 0;color:var(--muted)}
+  /* HUD */
+  .hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+  .pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px}
+  .pill b{color:var(--accent2)}
+  .lang{font:700 11px system-ui,sans-serif;padding:1px 7px;border-radius:5px;letter-spacing:.3px;white-space:nowrap}
+  .lang.py{background:#25406b;color:#cfe0ff}
+  .lang.java{background:#6b3d22;color:#ffdcc4}
+  .spec{font:600 10px system-ui,sans-serif;color:var(--accent2);border:1px solid #6b5a2a;border-radius:5px;padding:0 5px;margin-left:4px;white-space:nowrap}
+  .floor{position:absolute;left:0;right:0;bottom:0;height:30px;background:repeating-linear-gradient(90deg,#2a3045 0 38px,#252a3d 38px 40px)}
+  .wallbricks{position:absolute;inset:0 0 30px 0;opacity:.35;background:
+    repeating-linear-gradient(0deg,transparent 0 22px,#2c3248 22px 24px),
+    repeating-linear-gradient(90deg,transparent 0 46px,#2c3248 46px 48px)}
+  @keyframes bob{to{transform:translateY(-3px)}}
+  .scene.shake{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+  .toast.show{opacity:1}
+  .timer{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:6px 0 12px}
+  .timer i{display:block;height:100%;background:var(--accent);width:100%}
+  .qrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .q{font-weight:600}
+  pre.code{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 12px;
+    font:15px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;overflow-x:auto;white-space:pre}
+  .kw{color:#c792ea}.num{color:#f78c6c}.str{color:#c3e88d}.fn{color:#82aaff}.ty{color:#ffcb6b}
+  .tip{background:#2a2a1c;border:1px solid #5d5530;color:#f3e3a3;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .opt{background:var(--panel2);border:2px solid var(--line);color:var(--text);border-radius:10px;padding:12px;text-align:left;
+    font:15px ui-monospace,Consolas,monospace}
+  .opt:hover:not(:disabled){border-color:var(--blue)}
+  .opt .k{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:6px;background:var(--line);color:var(--text);font-weight:700;margin-right:10px;font-family:system-ui,sans-serif}
+  .opt.reveal{border-color:var(--accent);border-style:dashed}
+  .opt.reveal::after{content:"✓ answer";float:right;color:var(--accent);font:600 12px system-ui,sans-serif;margin-top:4px}
+  .opt.gone{opacity:.3;text-decoration:line-through}
+  .pill.toggle{cursor:pointer;user-select:none;display:flex;gap:6px;align-items:center}
+  .pill.toggle input{margin:0}
+  .opt.right{border-color:var(--accent);background:#1d3a2e}
+  .opt.wrong{border-color:var(--bad);background:#3a1f22}
+  .opt:disabled{cursor:default}
+  /* side panel */
+  .side .card{margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{padding:4px 5px;text-align:left;vertical-align:middle}
+  th{color:var(--muted);font-weight:600}
+  tr.chosen td{background:#26324a}
+  .bar{position:relative;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden;min-width:60px}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blue)}
+  .bar .tgt{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent2)}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .feat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+  .feat span:nth-child(even){font-family:monospace;color:var(--accent2)}
+  .metric{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}
+  .metric b{font-family:monospace}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+  .stats.four{grid-template-columns:repeat(4,1fr)}
+  .stat{background:var(--panel2);border-radius:10px;padding:10px;text-align:center;font-size:13px}
+  .stat b{display:block;font-size:22px;color:var(--accent2)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  /* evaluation */
+  .tscroll{overflow-x:auto}
+  table.ev{font-size:14px;margin:4px 0}
+  table.ev th,table.ev td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.ev td.n{font-family:ui-monospace,Consolas,monospace;text-align:right}
+  table.ev th.n{text-align:right}
+  table.ev td.best{color:var(--accent);font-weight:700}
+  .cross{color:var(--accent2)}
+  .box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:8px}
+  @media (max-width:960px){.wrap{flex-direction:column}.side{width:100%}}
+  @media (max-width:560px){.opts{grid-template-columns:1fr}h1{font-size:26px}.stats,.stats.four{grid-template-columns:1fr 1fr}.wrap{padding:10px}}
+  .hearts{color:var(--bad);letter-spacing:2px}
+  .modal{position:fixed;inset:0;background:rgba(5,7,12,.72);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal .card{max-width:520px;width:100%}
+  .rates{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+  .rate{background:var(--panel2);border:2px solid var(--line);color:var(--text);border-radius:10px;padding:10px 4px;font-size:13px}
+  .rate b{display:block;font-size:20px;color:var(--accent2)}
+  .rate:hover{border-color:var(--accent)}
+  input.txt{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;width:220px}
+
+  /* ===== battle scene ===== */
+  .scene{position:relative;height:230px;border-radius:12px;overflow:hidden;margin-bottom:12px;
+    background:radial-gradient(ellipse at 50% 120%,#2b2440 0%,transparent 60%),linear-gradient(#1a1e2e,#141724);border:1px solid var(--line)}
+  .wallbricks,.floor{transition:background-position .9s ease}
+  .scene.walking .wallbricks{background-position:-160px 0}
+  .scene.walking .floor{background-position:-160px 0}
+  .torch{position:absolute;top:58px;width:8px;height:22px;background:#5b4a3f;border-radius:2px}
+  .torch::before{content:"";position:absolute;left:-6px;top:-18px;width:20px;height:22px;border-radius:50% 50% 45% 45%;
+    background:radial-gradient(circle at 50% 70%,#ffe08a,#f29b4e 55%,transparent 70%);animation:flick .18s infinite alternate}
+  @keyframes flick{to{transform:scale(1.08,.94);opacity:.85}}
+  .hero{position:absolute;left:60px;bottom:28px;width:60px;transition:transform .2s}
+  .scene.walking .hero{animation:bob .2s infinite alternate}
+  @keyframes bob{to{transform:translateY(-4px)}}
+  .hero.cast{animation:cast .35s}
+  @keyframes cast{40%{transform:translate(6px,-8px) rotate(4deg)}}
+  .hero.hurt{animation:hurt .5s}
+  @keyframes hurt{20%{transform:translateX(-14px);filter:brightness(1.6) sepia(1) hue-rotate(-40deg) saturate(6)}60%{transform:translateX(-6px)}}
+  .shieldfx{position:absolute;left:62px;bottom:40px;font-size:46px;opacity:0;pointer-events:none}
+  .shieldfx.on{animation:shieldpop .9s}
+  @keyframes shieldpop{20%{opacity:1;transform:scale(1.2)}80%{opacity:.9}100%{opacity:0;transform:scale(1.4)}}
+  .enemy{position:absolute;right:56px;bottom:26px;width:110px;transition:transform .45s ease,opacity .45s}
+  .enemy.boss{width:118px;right:46px}
+  .enemy.out{transform:translateX(200px);opacity:0}
+  .enemy .ebody{animation:idle 1.1s infinite alternate ease-in-out}
+  .enemy .ebody svg{display:block;width:100%}
+  @keyframes idle{to{transform:translateY(-5px) scaleY(1.03)}}
+  .enemy.hurt .ebody{animation:ehurt .4s}
+  @keyframes ehurt{30%{transform:translateX(12px);filter:brightness(2.4) saturate(.2)}}
+  .enemy.angry .ebody{animation:angry .5s;filter:drop-shadow(0 0 10px #ef6f6c)}
+  @keyframes angry{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+  .enemy.attack{animation:lunge .6s}
+  @keyframes lunge{35%{transform:translateX(-190px) scale(1.08)}55%{transform:translateX(-180px)}}
+  .enemy.die{transform:scale(.2) rotate(25deg) translateY(40px);opacity:0;transition:transform .5s ease-in,opacity .5s}
+  .ename{text-align:center;font:700 12px system-ui,sans-serif;color:#f3d9dc;white-space:nowrap;margin-bottom:3px;text-shadow:0 1px 0 #000}
+  .ename small{color:var(--accent2);margin-left:4px}
+  .ehp{display:flex;gap:4px;justify-content:center;margin-bottom:5px;min-height:8px}
+  .ehp i{width:22px;height:8px;border-radius:3px;background:#3a2a2e;border:1px solid #6b3a40}
+  .ehp i.on{background:var(--bad)}
+  .map{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)}
+  .map i{width:12px;height:12px;border-radius:50%;background:#2a3045;border:2px solid #3a4260;display:inline-block}
+  .map i.done{background:var(--accent);border-color:var(--accent)}
+  .map i.fail{background:var(--bad);border-color:var(--bad)}
+  .map i.cur{border-color:var(--accent2);box-shadow:0 0 8px var(--accent2)}
+  .map i.skull{width:auto;height:auto;border:0;background:none;font-style:normal;font-size:14px;filter:grayscale(1);opacity:.6}
+  .map i.skull.cur{filter:none;opacity:1;box-shadow:none}
+  .map i.skull.done{filter:none;opacity:1;background:none}
+  .map b{color:var(--text);margin-right:4px}
+  .rankbox{position:absolute;right:12px;top:10px;font:700 11px system-ui,sans-serif;color:var(--accent2);text-align:right}
+  .xp{width:110px;height:6px;background:#2a3045;border-radius:4px;overflow:hidden;margin-top:3px}
+  .xp i{display:block;height:100%;width:0;background:var(--accent2);transition:width .6s}
+  .combo{position:absolute;left:14px;top:32px;font:800 15px system-ui,sans-serif;color:#ffb347;text-shadow:0 0 10px #ff6a00;opacity:0;transition:opacity .2s}
+  .combo.on{opacity:1}
+  .combo.pop{animation:pop .35s}
+  @keyframes pop{50%{transform:scale(1.35)}}
+  .lives{position:absolute;left:14px;top:10px;font-size:13px;color:var(--muted)}
+  .toast{position:absolute;left:50%;top:40px;transform:translateX(-50%);font-weight:800;font-size:18px;opacity:0;transition:opacity .2s;white-space:nowrap;text-shadow:0 2px 0 #000}
+  .toast.show{opacity:1}
+  .fx{position:absolute;inset:0;pointer-events:none}
+  .bolt{position:absolute;left:110px;bottom:75px;width:26px;height:12px;border-radius:50%;
+    background:radial-gradient(circle,#fff,#79a8ff 45%,transparent 70%);box-shadow:0 0 18px 6px #79a8ff88;transition:left .32s linear}
+  .bolt.crit{background:radial-gradient(circle,#fff,#f2c14e 45%,transparent 70%);box-shadow:0 0 22px 9px #f2c14e99;height:16px}
+  .dmg{position:absolute;font:900 22px system-ui,sans-serif;color:#fff;text-shadow:0 2px 0 #000,0 0 8px #79a8ff;animation:rise 1s forwards}
+  .dmg.crit{color:var(--accent2);font-size:28px;text-shadow:0 2px 0 #000,0 0 10px #f29b4e}
+  .dmg.bad{color:var(--bad);text-shadow:0 2px 0 #000}
+  .dmg.coin{color:#ffd96a;font-size:16px}
+  @keyframes rise{from{transform:translateY(0);opacity:1}to{transform:translateY(-55px);opacity:0}}
+  .scene.flashred::after{content:"";position:absolute;inset:0;background:#ef6f6c;animation:flash .45s forwards}
+  @keyframes flash{from{opacity:.35}to{opacity:0}}
+  .tlabel{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+  .tlabel b{font-family:ui-monospace,Consolas,monospace;color:var(--text)}
+  .tlabel+.timer{margin-top:3px}
+  .hearts{color:var(--bad);letter-spacing:2px}
+  button.pill{color:var(--text);font:inherit}
+  /* shop, banner, badges */
+  .shopgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+  .item{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center;color:var(--text)}
+  .item .ic{font-size:30px;display:block}
+  .item b{display:block;margin:4px 0 2px}
+  .item small{display:block;color:var(--muted);font-size:12px;min-height:32px}
+  .item .price{display:block;margin-top:6px;color:#ffd96a;font-weight:700}
+  .item:hover:not(:disabled){border-color:var(--accent2)}
+  .item:disabled{opacity:.4;cursor:default}
+  .item.bought{border-color:var(--accent)}
+  .banner{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:60;background:linear-gradient(#3a2f12,#251e0c);border:2px solid var(--accent2);
+    color:var(--accent2);font:900 26px system-ui,sans-serif;padding:16px 30px;border-radius:14px;text-align:center;box-shadow:0 10px 40px #000a;animation:bannerin .4s}
+  .banner small{display:block;font:600 14px system-ui,sans-serif;color:var(--text);margin-top:4px}
+  @keyframes bannerin{from{transform:translate(-50%,-20px) scale(.8);opacity:0}}
+  .badges{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;display:flex;gap:8px;align-items:center}
+  .badge.locked{opacity:.35;filter:grayscale(1)}
+  .badge .bi{font-size:22px}
+  .badge small{display:block;color:var(--muted);font-size:11px}
+  @media (max-width:560px){.scene{height:210px}.hero{left:24px;width:50px}.enemy{right:20px;width:90px}.enemy.boss{width:100px}.rankbox{display:none}.shopgrid{grid-template-columns:1fr}.bolt{left:70px}}
+  /* ===== Code Builder edition ===== */
+  .wrap{display:block;max-width:1420px}
+  .side{width:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;align-items:start}
+  .side .card{margin-bottom:0}
+  .scene{height:170px}
+  .enemy{width:80px}.enemy.boss{width:94px}
+  .rankbox{left:14px;right:auto;top:10px;text-align:left}.combo{top:38px}.lives{display:none}
+  .hero{width:52px}
+  .torch{top:44px}
+  .builder{display:grid;grid-template-columns:270px minmax(0,1fr) 300px;gap:12px;align-items:start}
+  .col-quest .card{margin-bottom:12px}
+  .palette{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .blk{background:#1f2a40;border:1px solid #34476e;border-left:4px solid var(--blue);border-radius:8px;padding:7px 10px;text-align:left;color:var(--text);
+    font:14px/1.35 ui-monospace,"Cascadia Code",Consolas,monospace;white-space:pre;overflow-x:auto;cursor:grab;user-select:none}
+  .blk:hover{border-color:var(--blue);background:#24324d}
+  .blk.k-head{border-left-color:#c792ea}
+  .blk.k-print{border-left-color:var(--accent)}
+  .blk.gone{opacity:.25;text-decoration:line-through;pointer-events:none}
+  .blk.drag{opacity:.4}
+  .ws{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:8px 6px;min-height:220px;margin-top:4px}
+  .wsempty{color:var(--muted);font-size:13px;padding:30px 12px;text-align:center}
+  .ln{display:flex;align-items:center;gap:6px;border-radius:7px;padding:2px 4px;border:1px solid transparent}
+  .ln:hover{background:#171b28}
+  .ln.sel{border-color:var(--accent2);background:#1d1e18}
+  .ln.dropbefore{box-shadow:inset 0 3px 0 var(--accent2)}
+  .ln .no{width:22px;text-align:right;color:#5b637d;font:12px ui-monospace,Consolas,monospace;flex-shrink:0}
+  .ln .code{flex:1;min-width:0;display:flex;align-items:center}
+  .ln .guide{display:inline-block;width:28px;align-self:stretch;border-left:1px dashed #3a4260;flex-shrink:0}
+  .ln .blk{flex:1;cursor:grab;padding:5px 9px;font-size:14px}
+  .ln .tools{display:flex;gap:3px;flex-shrink:0;opacity:.55}
+  .ln:hover .tools,.ln.sel .tools{opacity:1}
+  .ln .tools button{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;width:27px;height:27px;padding:0;font-size:13px;line-height:1}
+  .ln .tools button:hover{border-color:var(--accent2)}
+  .ln.bad .blk{border-color:var(--bad);background:#3a1f22}
+  .wsbar{margin-top:6px}
+  .runs{font-size:13px;color:var(--muted)}
+  .runs b{color:var(--accent2);letter-spacing:2px}
+  pre.console{background:#0a0c12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0 0;min-height:56px;
+    font:13.5px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;color:#b9c0d4}
+  pre.console .ok{color:var(--accent)} pre.console .err{color:var(--bad)} pre.console .dim{color:var(--muted)}
+  .quest h2{display:flex;justify-content:space-between;align-items:center}
+  .quest .giver{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .quest .giver .av{width:46px;flex-shrink:0}
+  .quest .giver b{display:block}
+  .quest .giver small{color:var(--muted)}
+  .quest .goal{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .quest .goal .tgt{display:inline-block;font:700 18px ui-monospace,Consolas,monospace;color:var(--accent2);background:#0a0c12;border-radius:6px;padding:2px 10px;margin-top:4px}
+  .quest ul{list-style:none;padding:0;margin:0 0 10px;font-size:13.5px}
+  .quest li{padding:3px 0;display:flex;gap:8px}
+  .quest li .ck{width:16px;color:var(--muted)}
+  .quest li.done .ck{color:var(--accent)}
+  .quest .rew{display:flex;gap:8px;flex-wrap:wrap}
+  .quest .rew span{background:var(--panel2);border-radius:8px;padding:4px 9px;font-size:13px}
+  .qlog{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow:auto;font-size:13px}
+  .qlog div.e{display:flex;justify-content:space-between;gap:8px;background:var(--panel2);border-radius:7px;padding:5px 9px}
+  .qlog .e.f{color:var(--muted)}
+  .opt{display:none}
+  @media (max-width:1180px){.builder{grid-template-columns:240px minmax(0,1fr)}.col-quest{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}.col-quest .card{margin:0}.side{grid-template-columns:1fr 1fr}}
+  @media (max-width:760px){.builder{grid-template-columns:1fr}.col-quest{grid-row:1;grid-template-columns:1fr}.col-blocks{grid-row:2}.col-build{grid-row:3}
+    .side{grid-template-columns:1fr}.palette{flex-direction:row;flex-wrap:wrap}.palette .blk{flex:0 1 auto}.ln .guide{width:16px}.ln .tools button{width:30px;height:30px}.scene{height:150px}.ws{min-height:160px}}
+
+  /* pre-test */
+  .popts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .popt{background:var(--panel2);border:2px solid var(--line);color:var(--text);border-radius:10px;padding:12px;text-align:left;font:15px ui-monospace,Consolas,monospace}
+  .popt:hover{border-color:var(--blue)}
+  .popt .k{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:6px;background:var(--line);color:var(--text);font-weight:700;margin-right:10px;font-family:system-ui,sans-serif}
+  #preBar{background:var(--blue)}
+  .stats.four2{grid-template-columns:repeat(4,1fr)}
+  @media (max-width:560px){.popts{grid-template-columns:1fr}}
+
+  .wrap.pre .side{display:none}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="main">
+    <!-- TITLE -->
+    <div id="scrTitle" class="card">
+      <h1 class="gameName"></h1>
+      <div class="muted">Code Builder edition: build Python programs from blocks to complete quests, defeat the monsters, beat the bosses.</div>
+      <p>Every quest is <b>generated on the spot</b> from code templates, at any level from 1 to 15. You get the program's lines as <b>shuffled blocks</b> (plus a few decoys) and must build a program that prints the quest's target output, with the right order and indentation. A small neural network (MLP) predicts whether you will complete a quest on your <b>first run without a hint</b>, and in <b>Adaptive</b> mode it generates quests where it expects about an <b>85%</b> chance of success.</p>
+      <p class="muted" style="margin-top:-6px">3 floors · each floor has 4 quest rooms and a boss · 3 runs and 1 hint per quest · a failed quest lets the monster hit you (5 hearts) · fast first-run builds land critical hits, streaks build a combo · earn coins and XP, then spend them at the camp between floors.</p>
+      <div class="label">Mode</div>
+      <div class="seg" id="segMode">
+        <button class="sel" data-v="adaptive"><b>Adaptive (MLP)</b><small>Challenges generated for your level</small></button>
+        <button data-v="fixed"><b>Fixed</b><small>Difficulty rises on a set schedule</small></button>
+      </div>
+      <div class="label">Participant code (optional, for the study)</div>
+      <input class="txt" id="participant" placeholder="e.g. P07" maxlength="20">
+      <label class="chk"><input type="checkbox" id="chkPretest" checked> Take the pre-test first (8 questions, about 5 minutes; required for study participants)</label>
+      <label class="chk"><input type="checkbox" id="chkPanel" checked> Show the AI panel (what the model is thinking)</label>
+      <label class="chk"><input type="checkbox" id="chkRevealTitle"> Show the solution (demo mode; flagged in the log)</label>
+      <div class="row">
+        <button class="btn" id="btnStart">Enter the dungeon</button>
+        <button class="btn ghost" id="btnEval">Thesis evaluation</button>
+      </div>
+      <p class="note">3 runs and 1 hint per quest (the hint removes the decoy blocks and shows a tip). Keys: Enter to run, H for a hint, Tab/Shift+Tab to indent the selected line. Every quest attempt and survey answer is logged and can be downloaded as a CSV.</p>
+    </div>
+
+    <!-- GAME -->
+    <div id="scrGame" class="hidden">
+      <div class="hud">
+        <span class="pill" id="hudFloor"></span>
+        <span class="pill" id="hudTopic"></span>
+        <span class="pill hearts" id="hudHearts"></span>
+        <span class="pill" id="hudShield" title="A shield blocks the next lost heart">🛡 <b id="hudShieldN">0</b></span>
+        <span class="pill" title="Coins: spend them at the camp between floors">🪙 <b id="hudCoins">0</b></span>
+        <span class="pill">Score <b id="hudScore">0</b></span>
+        <button class="pill toggle" id="btnMute" title="Sound on/off">🔊</button>
+        <label class="pill toggle"><input type="checkbox" id="chkReveal"> Show solution</label>
+      </div>
+      <div class="scene" id="scene">
+        <div class="wallbricks"></div>
+        <div class="torch" style="left:28%"></div><div class="torch" style="left:62%"></div>
+        <div class="floor"></div>
+        <div class="map" id="map"></div>
+        <div class="rankbox"><span id="rankTxt">Rank 1</span><div class="xp"><i id="xpBar"></i></div></div>
+        <div class="combo" id="combo"></div>
+        <div class="lives" id="lives"></div>
+        <svg class="hero" id="hero" viewBox="0 0 54 64" aria-hidden="true">
+          <rect x="11" y="6" width="32" height="24" rx="6" fill="#7cd4a8"/>
+          <rect x="17" y="13" width="7" height="7" rx="2" fill="#12141c"/>
+          <rect x="30" y="13" width="7" height="7" rx="2" fill="#12141c"/>
+          <rect x="25" y="0" width="4" height="7" fill="#7cd4a8"/><circle cx="27" cy="1" r="3" fill="#f2c14e"/>
+          <rect x="14" y="32" width="26" height="20" rx="4" fill="#5aa886"/>
+          <rect x="21" y="37" width="12" height="6" rx="2" fill="#f2c14e"/>
+          <rect x="16" y="52" width="8" height="12" rx="2" fill="#4a8f72"/>
+          <rect x="30" y="52" width="8" height="12" rx="2" fill="#4a8f72"/>
+          <rect x="40" y="30" width="5" height="18" rx="2" fill="#f2c14e"/><circle cx="42.5" cy="29" r="4.5" fill="#79a8ff"/>
+        </svg>
+        <div class="shieldfx" id="shieldFx">🛡</div>
+        <div class="enemy" id="enemy"><div class="ename" id="eName"></div><div class="ehp" id="eHp"></div><div class="ebody" id="eBody"></div></div>
+        <div class="fx" id="fx"></div>
+        <div class="toast" id="toast"></div>
+      </div>
+<div class="builder">
+        <!-- LEFT: code blocks -->
+        <div class="card col-blocks">
+          <h2>🧱 Code blocks</h2>
+          <div class="note" style="margin-top:-4px">Tap a block to add it. Some blocks are <b>decoys</b>.</div>
+          <div class="palette" id="palette"></div>
+        </div>
+        <!-- MIDDLE: build area -->
+        <div class="card col-build">
+          <div class="qrow">
+            <div class="q" id="qText">Build the program</div>
+            <div class="runs" id="runs"></div>
+          </div>
+          <div class="tlabel"><span id="tLabel">⚔ The enemy attacks in</span><b id="tSecs"></b></div>
+          <div class="timer"><i id="timerBar"></i></div>
+          <div class="ws" id="ws"><div class="wsempty">Your program is empty. Tap blocks on the left to add them here, then fix the indentation.</div></div>
+          <div class="wsbar">
+            <span class="note" style="margin:0">Selected line: <b>Tab</b> / <b>Shift+Tab</b> indent · <b>Alt+↑↓</b> move · <b>Del</b> remove</span>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="btnRun">▶ Run (cast spell)</button>
+            <button class="btn ghost small" id="btnHint">💡 Hint (H)</button>
+            <button class="btn ghost small" id="btnClear">Clear</button>
+            <button class="btn small hidden" id="btnNext">Next quest ▶</button>
+          </div>
+          <div class="tip hidden" id="tip"></div>
+          <pre class="console" id="console">&gt;&gt;&gt; Output appears here when you run your program.</pre>
+        </div>
+        <!-- RIGHT: quest -->
+        <div class="col-quest">
+          <div class="card quest" id="questCard"></div>
+          <div class="card">
+            <h2>📜 Quest log</h2>
+            <div class="qlog" id="qlog"><div class="note" style="margin:0">No quests finished yet.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRE-TEST -->
+    <div id="scrPre" class="card hidden">
+      <h1>Pre-<span>test</span></h1>
+      <div class="muted" id="preInfo"></div>
+      <div class="timer"><i id="preBar"></i></div>
+      <div class="q">What does this Python code print?</div>
+      <pre class="code" id="preCode" style="margin-top:10px"></pre>
+      <div class="popts" id="preOpts"></div>
+      <div class="row"><button class="btn ghost small" id="btnPreSkip">I don't know (skip)</button></div>
+      <p class="note">Every player gets the same 8 questions, from easy to hard. No hints and no score is shown. The game never sees these answers: they are only used later to check whether the game gave you the right difficulty.</p>
+    </div>
+
+    <!-- END -->
+    <div id="scrEnd" class="card hidden">
+      <h1 id="endTitle">Run <span>complete</span></h1>
+      <div class="muted" id="endMode"></div>
+      <div class="stats">
+        <div class="stat"><b id="stScore">0</b>score</div>
+        <div class="stat"><b id="stRate">0%</b>first-try success (target 85%)</div>
+        <div class="stat"><b id="stLevel">0</b>highest level cleared</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="stSolved">0%</b>solved with retries</div>
+        <div class="stat"><b id="stHints">0</b>hints used</div>
+        <div class="stat"><b id="stPre">–</b>pre-test score</div>
+        <div class="stat"><b id="stSurvey">–</b>your difficulty rating (3 = just right)</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="stRank">1</b>rank reached</div>
+        <div class="stat"><b id="stKills">0</b>monsters defeated</div>
+        <div class="stat"><b id="stCombo">0</b>best combo</div>
+      </div>
+      <div class="label">Badges</div>
+      <div class="badges" id="badges"></div>
+      <div class="label">Prediction accuracy this run</div>
+      <div class="stats four">
+        <div class="stat"><b id="stMlp">–</b>MLP</div>
+        <div class="stat"><b id="stLr">–</b>Logistic regression</div>
+        <div class="stat"><b id="stBkt">–</b>BKT</div>
+        <div class="stat"><b id="stRule">–</b>Rule-based</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnAgain">Play again</button>
+        <button class="btn ghost" id="btnCsv">Download this run (CSV)</button>
+        <button class="btn ghost" id="btnCsvAll">Download all runs on this device (CSV)</button>
+        <button class="btn ghost" id="btnEval2">Thesis evaluation</button>
+      </div>
+      <p class="note">A prediction counts as correct when the model's guess (P ≥ 0.5 → "will solve on the first try") matches what happened. One run is too short to judge the models; the thesis evaluates them on the full logged dataset.</p>
+    </div>
+
+    <!-- EVALUATION -->
+    <div id="scrEval" class="card hidden">
+      <h1>Thesis <span>evaluation</span></h1>
+      <div class="muted">MLP vs. logistic regression vs. Bayesian Knowledge Tracing vs. a rule-based method, on generated Python challenges.</div>
+      <div class="box">
+        <b>Setup.</b> Simulated learners only (allowed for Thesis 1): 320 learners with different skill levels play 30 generated challenges each, under a mix of difficulty policies.
+        Learners are split 80/20 into train and test. Every model gets the same features, the same split and the same metrics.
+        Thesis 2 repeats these tests on real gameplay, plus a pre-test and the in-game difficulty survey to check that the difficulty matches each student.
+      </div>
+      <div class="row">
+        <button class="btn" id="btnRunEval">Run evaluation</button>
+        <button class="btn ghost" id="btnEvalBack">Back</button>
+        <span class="muted" id="evalStatus"></span>
+      </div>
+      <div id="evalOut"></div>
+    </div>
+  </div>
+
+  <!-- AI PANEL -->
+  <div class="side" id="side">
+    <div class="card">
+      <h2>AI panel · generated candidates</h2>
+      <table>
+        <thead><tr><th>Lv</th><th>Code</th><th>MLP P(solve)</th><th></th><th title="Logistic regression">LR</th><th>BKT</th><th>Rule</th></tr></thead>
+        <tbody id="predBody"></tbody>
+      </table>
+      <div class="note"><span style="color:var(--accent2)">│</span> = 85% target. Highlighted row = challenge served. <span id="whyNote"></span></div>
+    </div>
+    <div class="card">
+      <h2>Input features</h2>
+      <div class="feat" id="featBox"></div>
+    </div>
+    <div class="card">
+      <h2>How well it's predicting</h2>
+      <div id="metricBox"></div>
+      <div class="note" id="pretrainNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SURVEY -->
+<div class="modal hidden" id="survey">
+  <div class="card">
+    <h2>Boss defeated! Floor <span id="surveyFloor"></span> cleared</h2>
+    <p>How difficult were the challenges on this floor <b>for you</b>?</p>
+    <div class="rates">
+      <button class="rate" data-v="1"><b>1</b>Too easy</button>
+      <button class="rate" data-v="2"><b>2</b>Easy</button>
+      <button class="rate" data-v="3"><b>3</b>Just right</button>
+      <button class="rate" data-v="4"><b>4</b>Hard</button>
+      <button class="rate" data-v="5"><b>5</b>Too hard</button>
+    </div>
+    <p class="note">Your answer helps check whether the game matches each player's skill level.</p>
+  </div>
+</div>
+
+<!-- CAMP / SHOP -->
+<div class="modal hidden" id="shop">
+  <div class="card">
+    <h2>🔥 Camp before floor <span id="shopFloor"></span></h2>
+    <p>You rest by the fire. A merchant offers supplies. You have <b>🪙 <span id="shopCoins"></span></b>.</p>
+    <div class="shopgrid" id="shopGrid"></div>
+    <div class="row"><button class="btn" id="btnShopGo">Descend to the next floor</button></div>
+  </div>
+</div>
+<div class="banner hidden" id="banner"></div>
+
+<script>
+// ===== name (change here to rename the game everywhere) =====
+const NAME=['Serpent &amp; Bean ','Builder'];
+const NAME_FULL='Serpent & Bean: Code Builder';
+const NAME_SLUG='serpent_and_bean_builder';
+const LOG_KEY='serpent_builder_log_v1';
+// ==GEN START==
+// ---------- utilities ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let RNG=Math.random;
+const rint=(a,b)=>a+Math.floor(RNG()*(b-a+1));
+const pick=a=>a[Math.floor(RNG()*a.length)];
+const chance=p=>RNG()<p;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(RNG()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const MAX_D=15;
+
+// ---------- difficulty settings: what a generated program may contain at each level ----------
+// D1: assignments + arithmetic · D2: += -= *= · D3: if/else · D4: for loops · D5: elif, while, // and %
+// D6: lists · D7: 'and' conditions · D8: nested loops · higher levels: longer programs, deeper nesting, more variables
+function cfg(D){
+  return{D,
+    nVars:D<=2?2:D<=5?3:4,
+    nStmts:D<=2?D+1:Math.min(5,2+Math.floor(D*0.25)),maxLines:Math.min(18,5+D),minLines:3+Math.floor(D*0.5),
+    depthMax:D<=2?0:D<=4?1:D<=9?2:3,
+    aug:D>=2, ifs:D>=3, fors:D>=4, elif:D>=5, whiles:D>=5, divmod:D>=5, lists:D>=6, and:D>=7, nested:D>=8,
+    maxNum:D<=3?9:D<=7?12:20, maxIter:D<=5?4:D<=9?5:6,
+    maxSteps:12+7*D};
+}
+
+// ---------- program generator: builds a small Python program as a tree, then prints it ----------
+const VARNAMES=['x','y','z','n'];
+function genProgram(D){
+  const c=cfg(D),vars=VARNAMES.slice(0,c.nVars),useList=c.lists&&chance(0.7);
+  const loopVars=['i','j','k'];
+  const init=vars.map(v=>({t:'assign',v,e:{t:'num',v:rint(0,c.maxNum)}}));
+  if(useList)init.push({t:'list',v:'nums',items:Array.from({length:rint(2,4)},()=>rint(1,9))});
+  let loopDepth=0;
+  function atom(scope){ // a variable (or loop variable) or a small number
+    const pool=[...vars,...scope];
+    if(chance(0.35))return{t:'num',v:rint(1,c.maxNum)};
+    return{t:'var',v:pick(pool)};
+  }
+  function expr(scope){
+    const r=RNG();
+    if(useList&&r<0.15)return chance(0.5)?{t:'len',v:'nums'}:{t:'idx',v:'nums',i:{t:'num',v:0}};
+    if(r<0.45)return atom(scope);
+    const ops=['+','-'];if(c.D>=2)ops.push('*');if(c.divmod)ops.push('//','%');
+    const op=pick(ops);
+    if(op==='//'||op==='%')return{t:'bin',op,a:{t:'var',v:pick([...vars,...scope])},b:{t:'num',v:rint(2,5)}};
+    if(op==='*')return{t:'bin',op,a:atom(scope),b:{t:'num',v:rint(2,3)}};
+    const a=atom(scope);let b=atom(scope);
+    if(a.t==='var'&&b.t==='var'&&a.v===b.v)b={t:'num',v:rint(1,c.maxNum)};
+    return{t:'bin',op,a,b};
+  }
+  function cond(scope){
+    const mk=()=>{const a=pick([...vars,...scope]);let b=chance(0.6)?{t:'num',v:rint(1,c.maxNum)}:{t:'var',v:pick(vars)};
+      if(b.t==='var'&&b.v===a)b={t:'num',v:rint(1,c.maxNum)};
+      return{t:'cmp',op:pick(['>','<','>=','<=','==','!=']),a:{t:'var',v:a},b};};
+    if(c.and&&chance(0.4))return{t:'logic',op:pick(['and','or']),a:mk(),b:mk()};
+    if(c.divmod&&chance(0.25))return{t:'cmp',op:'==',a:{t:'bin',op:'%',a:{t:'var',v:pick([...vars,...scope])},b:{t:'num',v:2}},b:{t:'num',v:pick([0,1])}};
+    return mk();
+  }
+  function simple(scope){
+    if(useList&&chance(0.25))return{t:'append',v:'nums',e:expr(scope)};
+    if(c.aug&&chance(0.55)){const v=pick(vars),op=pick(c.D>=3?['+=','-=','*=']:['+=','-=']);
+      let e=op==='*='?{t:'num',v:rint(2,3)}:expr(scope);
+      if(JSON.stringify(e).includes('"v":"'+v+'"'))e={t:'num',v:rint(1,c.maxNum)};
+      return{t:'aug',v,op,e};}
+    const v=pick(vars);let e=expr(scope);
+    if(e.t==='var'&&e.v===v)e={t:'bin',op:'+',a:e,b:{t:'num',v:rint(1,c.maxNum)}};
+    return{t:'assign',v,e};
+  }
+  function block(depth,n,scope){
+    const out=[];
+    for(let s=0;s<n;s++){
+      const canNest=depth<c.depthMax,r=RNG();
+      if(canNest&&c.fors&&r<0.3&&(loopDepth===0||c.nested)){
+        const lv=loopVars[loopDepth];loopDepth++;
+        const it=rint(2,loopDepth>1?3:c.maxIter),start=chance(0.5)?0:rint(1,3),step=c.D>=6&&chance(0.3)?2:1;
+        out.push({t:'for',v:lv,start,stop:start+it*step,step,body:block(depth+1,rint(1,2),[...scope,lv])});loopDepth--;
+      }else if(canNest&&c.whiles&&loopDepth===0&&r<0.42){
+        const v=pick(vars);loopDepth++;
+        const body=block(depth+1,rint(0,1),scope).filter(st=>!(st.v===v));
+        body.push({t:'aug',v,op:'+=',e:{t:'num',v:rint(1,4)}});
+        out.push({t:'while',cond:{t:'cmp',op:pick(['<','<=']),a:{t:'var',v},b:{t:'num',v:rint(5,c.maxNum+10)}},body});loopDepth--;
+      }else if(canNest&&c.ifs&&r<0.6){
+        const st={t:'if',cond:cond(scope),body:block(depth+1,rint(1,2),scope),elifs:[],els:null};
+        if(c.elif&&chance(0.35))st.elifs.push({cond:cond(scope),body:block(depth+1,1,scope)});
+        if(chance(0.6))st.els=block(depth+1,1,scope);
+        out.push(st);
+      }else out.push(simple(scope));
+    }
+    return out;
+  }
+  const body=block(0,c.nStmts,[]);
+  // what to print: a variable the program actually changes (the last one changed, most of the time)
+  const changed=[];walk(body,s=>{if((s.t==='assign'||s.t==='aug')&&vars.includes(s.v))changed.push(s.v);});
+  let printE;
+  const r=RNG(),target=changed.length?(chance(0.7)?changed[changed.length-1]:pick(changed)):pick(vars);
+  if(useList&&r<0.3)printE=pick([{t:'len',v:'nums'},{t:'sum',v:'nums'},{t:'idx',v:'nums',i:{t:'num',v:-1}}]);
+  else if(useList&&r<0.4)printE={t:'var',v:'nums'};
+  else if(c.D>=6&&r<0.55){let o=pick(vars.filter(v=>v!==target));printE={t:'pair',a:o,b:target};}
+  else printE={t:'var',v:target};
+  return{D,init,body,printE,useList,cfg:c};
+}
+
+// ---------- Python source code from the tree ----------
+function exprSrc(e){
+  switch(e.t){
+    case'num':return String(e.v);
+    case'var':return e.v;
+    case'len':return`len(${e.v})`;
+    case'sum':return`sum(${e.v})`;
+    case'idx':return`${e.v}[${exprSrc(e.i)}]`;
+    case'bin':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'cmp':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'logic':return`${exprSrc(e.a)} ${e.op} ${exprSrc(e.b)}`;
+    case'pair':return`${e.a}, ${e.b}`;
+  }
+}
+function toSource(P){
+  const L=[],ind=d=>'    '.repeat(d);
+  const emit=(st,d)=>{
+    switch(st.t){
+      case'assign':L.push(ind(d)+`${st.v} = ${exprSrc(st.e)}`);break;
+      case'list':L.push(ind(d)+`${st.v} = [${st.items.join(', ')}]`);break;
+      case'aug':L.push(ind(d)+`${st.v} ${st.op} ${exprSrc(st.e)}`);break;
+      case'append':L.push(ind(d)+`${st.v}.append(${exprSrc(st.e)})`);break;
+      case'for':{const r=st.step!==1?`range(${st.start}, ${st.stop}, ${st.step})`:st.start!==0?`range(${st.start}, ${st.stop})`:`range(${st.stop})`;
+        L.push(ind(d)+`for ${st.v} in ${r}:`);st.body.forEach(s=>emit(s,d+1));break;}
+      case'while':L.push(ind(d)+`while ${exprSrc(st.cond)}:`);st.body.forEach(s=>emit(s,d+1));break;
+      case'if':L.push(ind(d)+`if ${exprSrc(st.cond)}:`);st.body.forEach(s=>emit(s,d+1));
+        for(const el of st.elifs){L.push(ind(d)+`elif ${exprSrc(el.cond)}:`);el.body.forEach(s=>emit(s,d+1));}
+        if(st.els){L.push(ind(d)+'else:');st.els.forEach(s=>emit(s,d+1));}break;
+    }
+  };
+  P.init.forEach(s=>emit(s,0));P.body.forEach(s=>emit(s,0));
+  L.push(`print(${exprSrc(P.printE)})`);
+  return L.join('\n');
+}
+
+// ---------- interpreter (Python semantics for ints, // and %) ----------
+// bug modes simulate common tracing mistakes; they produce the wrong answer options
+class Halt extends Error{}
+function run(P,bug){
+  const env={},state={steps:0,flipped:false,augDone:false};
+  const fdiv=(a,b)=>Math.floor(a/b),fmod=(a,b)=>a-b*Math.floor(a/b);
+  const val=e=>{
+    switch(e.t){
+      case'num':return e.v;
+      case'var':if(!(e.v in env))throw new Halt('undef');return env[e.v];
+      case'len':return env[e.v].length;
+      case'sum':return env[e.v].reduce((s,x)=>s+x,0);
+      case'idx':{const L=env[e.v],i=val(e.i),k=i<0?L.length+i:i;if(k<0||k>=L.length)throw new Halt('index');return L[k];}
+      case'bin':{const a=val(e.a),b=val(e.b);return e.op==='+'?a+b:e.op==='-'?a-b:e.op==='*'?a*b:e.op==='//'?fdiv(a,b):fmod(a,b);}
+      case'cmp':{const a=val(e.a),b=val(e.b);let op=e.op;if(bug==='extra'&&e._loop&&op==='<')op='<=';
+        return op==='>'?a>b:op==='<'?a<b:op==='>='?a>=b:op==='<='?a<=b:op==='=='?a===b:a!==b;}
+      case'logic':{const a=val(e.a),b=val(e.b);return e.op==='and'?a&&b:a||b;}
+    }
+  };
+  const chk=v=>{if(typeof v==='number'&&(Math.abs(v)>999||!Number.isInteger(v)))throw new Halt('big');return v;};
+  const exec=(st)=>{
+    if(++state.steps>400)throw new Halt('steps');
+    switch(st.t){
+      case'assign':env[st.v]=chk(val(st.e));break;
+      case'list':env[st.v]=st.items.slice();break;
+      case'aug':{if(!(st.v in env))throw new Halt('undef');const e=chk(val(st.e));
+        if(bug==='aug'&&!state.augDone){state.augDone=true;env[st.v]=e;break;}
+        env[st.v]=chk(st.op==='+='?env[st.v]+e:st.op==='-='?env[st.v]-e:env[st.v]*e);break;}
+      case'append':env[st.v].push(chk(val(st.e)));if(env[st.v].length>10)throw new Halt('long');break;
+      case'for':{const stop=bug==='extra'?st.stop+st.step:st.stop;
+        for(let i=st.start;i<stop;i+=st.step){env[st.v]=i;st.body.forEach(exec);state.steps++;}break;}
+      case'while':{st.cond._loop=true;let n=0;while(val(st.cond)){if(++n>12)throw new Halt('while');st.body.forEach(exec);state.steps++;}break;}
+      case'if':{let c=val(st.cond);if(bug==='flip'&&!state.flipped){state.flipped=true;c=!c;}
+        if(c){st.body.forEach(exec);break;}
+        for(const el of st.elifs)if(val(el.cond)){el.body.forEach(exec);return;}
+        if(st.els)st.els.forEach(exec);break;}
+    }
+  };
+  P.init.forEach(exec);
+  const body=bug==='skip'?P.body.slice(0,-1):P.body;
+  body.forEach(exec);
+  const pe=P.printE;
+  const show=v=>Array.isArray(v)?'['+v.join(', ')+']':String(v);
+  const out=pe.t==='pair'?`${show(env[pe.a])} ${show(env[pe.b])}`:show(val(pe));
+  return{out,steps:state.steps,env};
+}
+function walk(stmts,f,d=0){for(const s of stmts){f(s,d);if(s.body)walk(s.body,f,d+1);if(s.elifs)s.elifs.forEach(e=>walk(e.body,f,d+1));if(s.els)walk(s.els,f,d+1);}}
+function features(P,steps,src){
+  let depth=0,loops=0,conds=0,nested=false;
+  walk(P.body,(s,d)=>{if(s.t==='for'||s.t==='while'){loops++;if(d>0)nested=true;}if(s.t==='if')conds++;depth=Math.max(depth,d+((s.body)?1:0));});
+  return{lines:src.split('\n').length,depth,loops,conds,steps,hasList:P.useList?1:0,nested:nested?1:0};
+}
+// the main concept of a challenge (used for hints and as the BKT skill)
+function mainConcept(P,f){
+  const c=P.cfg;let k='arithmetic';
+  walk(P.body,s=>{});
+  if(P.body.some(s=>s.t==='aug'))k='assignment';
+  if(f.conds)k='conditionals';
+  if(f.loops)k=P.body.some(s=>s.t==='while')?'while-loops':'for-loops';
+  if(f.hasList)k='lists';
+  if(f.nested||f.depth>=2&&f.loops)k='nested';
+  return k;
+}
+const CONCEPTS={
+  'arithmetic':{name:'Variables & arithmetic',tip:'Go line by line and write down each variable\'s value after every line.'},
+  'assignment':{name:'Updating variables',tip:'x += 3 means x = x + 3. Use the value x has at that moment.'},
+  'conditionals':{name:'Conditionals',tip:'Check the condition with the current values. Only one branch runs: the first true one, or else.'},
+  'for-loops':{name:'For loops',tip:'range(a, b) stops before b. List every value the loop variable takes, then run the body once for each.'},
+  'while-loops':{name:'While loops',tip:'Check the condition before every pass and stop as soon as it is false.'},
+  'lists':{name:'Lists',tip:'append adds to the end, len counts items, index 0 is the first item and -1 the last.'},
+  'nested':{name:'Nested blocks',tip:'The inner block runs completely for each pass of the outer loop. Keep a small table of values.'},
+};
+// generate a full challenge at difficulty D (retries until the program is valid and traceable)
+function makeChallenge(D){
+  const c=cfg(D);
+  for(let tries=0;tries<400;tries++){
+    const P=genProgram(D);let r;
+    try{r=run(P);}catch(e){continue;}
+    if(r.steps>c.maxSteps)continue;
+    const src=toSource(P),f=features(P,r.steps,src);
+    // each level must actually use its new construct
+    if(D>=3&&D<=4&&!f.conds)continue;
+    if(D>=4&&!f.loops)continue;
+    if(D>=6&&D<=7&&!f.hasList&&!f.conds)continue;
+    if(D>=8&&!f.nested&&f.depth<2)continue;
+    if(D>=10&&f.depth<2)continue;
+    if(f.lines<c.minLines||f.lines>c.maxLines)continue;
+    // the printed value should depend on the program, not just the first line
+    const trivial=P.printE.t==='var'&&P.init.some(s=>s.v===P.printE.v&&s.e&&String(s.e.v)===r.out);
+    if(trivial)continue;
+    // wrong options from common tracing mistakes, then near misses
+    const wrong=[];
+    for(const bug of['extra','flip','skip','aug']){try{const o=run(P,bug).out;if(o!==r.out&&!wrong.includes(o))wrong.push(o);}catch(e){}}
+    const n=Number(r.out);
+    for(const d of[1,-1,2,-2,3,10]){if(wrong.length>=6)break;if(!isNaN(n)&&r.out.trim()!==''&&!r.out.includes(' ')){const s=String(n+d);if(!wrong.includes(s)&&s!==r.out)wrong.push(s);}}
+    if(wrong.length<3)continue;
+    const chosen=shuffle(wrong.slice(0,4)).slice(0,3);
+    return{D,P,code:src,answer:r.out,options:shuffle([r.out,...chosen]),feat:f,concept:mainConcept(P,f)};
+  }
+  throw new Error('could not generate D='+D);
+}
+// ==GEN END==
+
+// ---------- MLP: inputs → 16 ReLU → 8 ReLU → 1 sigmoid, Adam, binary cross-entropy ----------
+class MLP{
+  constructor(sizes,rnd){this.sizes=sizes;this.L=sizes.length-1;this.t=0;this.W=[];this.b=[];this.mW=[];this.vW=[];this.mb=[];this.vb=[];
+    for(let l=0;l<this.L;l++){const nI=sizes[l],nO=sizes[l+1],lim=Math.sqrt(6/nI)*(l===this.L-1?0.5:1);
+      this.W.push(Float64Array.from({length:nI*nO},()=>(rnd()*2-1)*lim));this.b.push(new Float64Array(nO).fill(l<this.L-1?0.01:0));
+      this.mW.push(new Float64Array(nI*nO));this.vW.push(new Float64Array(nI*nO));this.mb.push(new Float64Array(nO));this.vb.push(new Float64Array(nO));}}
+  forward(x){const acts=[x];for(let l=0;l<this.L;l++){const nI=this.sizes[l],nO=this.sizes[l+1],a=acts[l],W=this.W[l],out=new Float64Array(nO);
+      for(let o=0;o<nO;o++){let z=this.b[l][o];for(let i=0;i<nI;i++)z+=W[o*nI+i]*a[i];out[o]=l<this.L-1?(z>0?z:0):1/(1+Math.exp(-z));}acts.push(out);}return acts;}
+  predict(x){return this.forward(x)[this.L][0];}
+  accum(x,y,gW,gb){const acts=this.forward(x);let delta=[acts[this.L][0]-y]; // dBCE/dz for a sigmoid output
+    for(let l=this.L-1;l>=0;l--){const nI=this.sizes[l],nO=this.sizes[l+1],a=acts[l],W=this.W[l];
+      for(let o=0;o<nO;o++){gb[l][o]+=delta[o];for(let i=0;i<nI;i++)gW[l][o*nI+i]+=delta[o]*a[i];}
+      if(l>0){const nd=new Float64Array(nI);for(let i=0;i<nI;i++){if(a[i]<=0)continue;let s=0;for(let o=0;o<nO;o++)s+=W[o*nI+i]*delta[o];nd[i]=s;}delta=nd;}}}
+  zeros(){return[this.W.map(w=>new Float64Array(w.length)),this.b.map(b=>new Float64Array(b.length))];}
+  step(gW,gb,n,lr){this.t++;const b1=.9,b2=.999,eps=1e-8,c1=1-Math.pow(b1,this.t),c2=1-Math.pow(b2,this.t);
+    const upd=(P,G,M,V)=>{for(let k=0;k<P.length;k++){const g=G[k]/n;M[k]=b1*M[k]+(1-b1)*g;V[k]=b2*V[k]+(1-b2)*g*g;P[k]-=lr*(M[k]/c1)/(Math.sqrt(V[k]/c2)+eps);}};
+    for(let l=0;l<this.L;l++){upd(this.W[l],gW[l],this.mW[l],this.vW[l]);upd(this.b[l],gb[l],this.mb[l],this.vb[l]);}}
+  fit(X,Y,{epochs=15,batch=32,lr=0.003,rnd=Math.random}={}){const idx=X.map((_,i)=>i);
+    for(let ep=0;ep<epochs;ep++){for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+      for(let s=0;s<idx.length;s+=batch){const[gW,gb]=this.zeros(),e=Math.min(idx.length,s+batch);for(let k=s;k<e;k++)this.accum(X[idx[k]],Y[idx[k]],gW,gb);this.step(gW,gb,e-s,lr);}}}
+  trainOne(x,y,lr){const[gW,gb]=this.zeros();this.accum(x,y,gW,gb);this.step(gW,gb,1,lr);}
+}
+// ---------- baseline: logistic regression on the same features ----------
+class LogReg{
+  constructor(n){this.w=new Float64Array(n);this.b=0;}
+  predict(x){let z=this.b;for(let i=0;i<x.length;i++)z+=this.w[i]*x[i];return 1/(1+Math.exp(-z));}
+  trainOne(x,y,lr){const g=this.predict(x)-y;for(let i=0;i<x.length;i++)this.w[i]-=lr*g*x[i];this.b-=lr*g;}
+  fit(X,Y,{epochs=20,lr=0.05,rnd=Math.random}={}){const idx=X.map((_,i)=>i);
+    for(let ep=0;ep<epochs;ep++){for(let i=idx.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+      const a=lr*(1-ep/(epochs*1.5));for(const i of idx)this.trainOne(X[i],Y[i],a);}}
+}
+// ---------- baseline: Bayesian Knowledge Tracing, one skill per concept tag, fitted by grid search ----------
+const BKT_GRID=(()=>{const g=[];for(const L0 of[.1,.3,.5,.7,.9])for(const T of[.02,.05,.1,.2,.3])for(const S of[.05,.1,.2,.3])for(const G of[.1,.2,.3,.4])g.push({L0,T,S,G});return g;})();
+function bktSeqs(rows){const m=new Map();for(const r of rows){const k=r.learner+'|'+r.concept;if(!m.has(k))m.set(k,{c:r.concept,ys:[]});m.get(k).ys.push(r.y);}return[...m.values()];}
+function bktLL(seqs,P){let ll=0;for(const s of seqs){let L=P.L0;for(const y of s.ys){const pc=L*(1-P.S)+(1-L)*P.G;ll+=y?Math.log(pc):Math.log(1-pc);L=y?L*(1-P.S)/pc:L*P.S/(1-pc);L=L+(1-L)*P.T;}}return ll;}
+function bktFitOne(seqs){let best=BKT_GRID[0],bl=-Infinity;for(const P of BKT_GRID){const l=bktLL(seqs,P);if(l>bl){bl=l;best=P;}}return best;}
+function fitBKT(rows){const seqs=bktSeqs(rows),by={};for(const s of seqs)(by[s.c]=by[s.c]||[]).push(s);
+  const model={global:bktFitOne(seqs),byC:{}};for(const c in by)model.byC[c]=bktFitOne(by[c]);return model;}
+const bktParams=(m,c)=>m.byC[c]||m.global; // a concept never seen in training falls back to the global parameters
+function bktProb(m,state,c){const P=bktParams(m,c),L=state[c]??P.L0;return L*(1-P.S)+(1-L)*P.G;}
+function bktUpdate(m,state,c,y){const P=bktParams(m,c);let L=state[c]??P.L0;const pc=L*(1-P.S)+(1-L)*P.G;L=y?L*(1-P.S)/pc:L*P.S/(1-pc);state[c]=L+(1-L)*P.T;}
+function bktPredictRows(m,rows){const st={};return rows.map(r=>{const s=(st[r.learner]=st[r.learner]||{});const p=bktProb(m,s,r.concept);bktUpdate(m,s,r.concept,r.y);return p;});}
+
+// ---------- metrics ----------
+function auc(ps,ys){const idx=ps.map((_,i)=>i).sort((a,b)=>ps[a]-ps[b]);let sumPos=0,nPos=0;
+  for(let i=0;i<idx.length;){let j=i;while(j<idx.length&&ps[idx[j]]===ps[idx[i]])j++;const avg=(i+1+j)/2;for(let k=i;k<j;k++)if(ys[idx[k]]){sumPos+=avg;nPos++;}i=j;}
+  const nNeg=ys.length-nPos;return nPos&&nNeg?(sumPos-nPos*(nPos+1)/2)/(nPos*nNeg):NaN;}
+function metrics(ps,ys){let tp=0,fp=0,fn=0,tn=0,br=0;
+  ps.forEach((p,i)=>{const y=ys[i],h=p>=.5;if(h&&y)tp++;else if(h)fp++;else if(y)fn++;else tn++;br+=(p-y)*(p-y);});
+  const n=ys.length,prec=tp+fp?tp/(tp+fp):0,rec=tp+fn?tp/(tp+fn):0;
+  return{n,acc:n?(tp+tn)/n:NaN,prec,rec,f1:prec+rec?2*prec*rec/(prec+rec):0,auc:auc(ps,ys),brier:n?br/n:NaN};}
+
+
+// ---------- features (same for simulated learners and live play) ----------
+const FEATS=[['f_acc_all','Overall accuracy'],['f_acc_recent','Recent accuracy (last 5)'],['f_acc_near','Accuracy at similar difficulty'],['f_last','Last challenge solved?'],
+  ['f_time','Recent time used'],['f_streak','Current streak'],['f_max_level','Highest level solved'],['f_recent_level','Recent average level'],
+  ['f_hint_rate','Recent hint use'],['f_retry_rate','Recent retries'],['f_acc_concept','Accuracy on this concept'],
+  ['f_level','Challenge level'],['f_lines','Lines of code'],['f_depth','Nesting depth'],['f_loops','Loops'],['f_steps','Steps to trace'],['f_has_list','Uses a list?'],['f_jump','Level jump vs. recent']];
+const NF=FEATS.length;
+// hist items: {D, concept, y, tfrac, hint, attempts}   y = solved on the first try without a hint
+function featurize(hist,ch){
+  const n=hist.length,sm=a=>(a.filter(h=>h.y).length+1)/(a.length+2),rec=hist.slice(-5);
+  let streak=0;for(let i=n-1;i>=0&&hist[i].y;i--)streak++;
+  let hi=0;for(const h of hist)if(h.y&&h.D>hi)hi=h.D;
+  const avg=f=>rec.length?rec.reduce((s,h)=>s+f(h),0)/rec.length:0;
+  const recD=rec.length?avg(h=>h.D):1,f=ch.feat;
+  return[
+    sm(hist),sm(rec),sm(hist.filter(h=>Math.abs(h.D-ch.D)<=1)),n?hist[n-1].y:0.5,
+    rec.length?avg(h=>h.tfrac):0.5,Math.min(streak,5)/5,hi/MAX_D,recD/MAX_D,
+    avg(h=>h.hint),avg(h=>Math.max(1,h.attempts)>1?1:0),sm(hist.filter(h=>h.concept===ch.concept)),
+    ch.D/MAX_D,Math.min(1,f.lines/18),f.depth/3,Math.min(1,f.loops/4),Math.min(1,f.steps/60),f.hasList,Math.max(-1,Math.min(1,(ch.D-recD)/5)),
+  ];
+}
+function ruleP(hist,ch){ // baseline: recent accuracy, lowered for each level above the last one
+  const rec=hist.slice(-5),acc=(rec.filter(h=>h.y).length+1)/(rec.length+2),last=hist.length?hist[hist.length-1].D:1;
+  return Math.min(.95,Math.max(.05,acc-0.12*(ch.D-last)));
+}
+
+// ---------- simulated learners (Thesis 1 allows synthetic data) ----------
+const sig=z=>1/(1+Math.exp(-z));
+function gauss(r){let u=0;while(!u)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());}
+// how hard a challenge really is for a simulated learner: mostly its level, plus its code features
+const effD=ch=>{const f=ch.feat;return 0.55*ch.D+0.06*f.steps+0.45*f.depth+0.3*f.hasList+0.15*f.conds;};
+function makeLearner(r){return{r,s:Math.max(0.5,Math.min(13,4+gauss(r)*1.8)),fam:{},lr:0.03+r()*0.08,hintProp:r()*0.5};}
+function learnerAttempt(L,ch){
+  const r=L.r,fam=L.fam[ch.concept]||0,dE=effD(ch);
+  const p=0.15+0.8*sig(1.1*(L.s-dE)+1.0+0.4*fam);
+  const hint=r()<L.hintProp*(1-p);
+  let y=0,solved=false,attempts=1;
+  if(hint){solved=r()<p+(1-p)*0.35;if(!solved){attempts=2;solved=r()<0.3+0.4*p;}}
+  else if(r()<p){y=1;solved=true;}
+  else{attempts=2;solved=r()<0.3+0.4*p;}
+  let tfrac=Math.min(1,Math.max(0.05,0.2+0.5*(1-p)+gauss(r)*0.1+(attempts-1)*0.15+(hint?0.1:0)));if(!solved&&r()<0.15)tfrac=1;
+  L.s+=solved?L.lr*(dE>=L.s-1?1.2:0.4):L.lr*0.15;
+  L.fam[ch.concept]=Math.min(1.5,fam+(solved?0.3:0.1));
+  return{y,solved,attempts,hint:hint?1:0,tfrac};
+}
+
+// ---------- a seeded pool of generated challenges, so simulations run fast ----------
+let POOL=null;
+function buildPool(seed,perLevel){
+  const keep=RNG;RNG=mulberry32(seed);const pool={};
+  for(let D=1;D<=MAX_D;D++){pool[D]=[];for(let k=0;k<perLevel;k++){const c=makeChallenge(D);pool[D].push({D,feat:c.feat,concept:c.concept});}}
+  RNG=keep;return pool;
+}
+const fromPool=(D,r)=>{const a=POOL[D];return a[Math.floor(r()*a.length)];};
+
+// ---------- level selection (shared by live play and the simulations) ----------
+const TARGET=0.85,BAND=0.10;
+function allowedLevels(hist){
+  if(!hist.length)return[1,2];
+  const last=hist[hist.length-1],D=last.D;let streak=0;for(let i=hist.length-1;i>=0&&hist[i].y;i--)streak++;
+  const L=last.y?[D,D+1].concat(streak>=3?[D+2]:[]):[D-1,D];
+  return[...new Set(L.map(v=>Math.max(1,Math.min(MAX_D,v))))];
+}
+function pickLevelWhy(mode,turn,hist,pf){
+  if(mode==='fixed')return{d:Math.min(MAX_D,1+Math.floor(turn/2)),why:'fixed schedule'};
+  const allowed=allowedLevels(hist),last=hist.length?hist[hist.length-1]:null;
+  let run=0;if(last)for(let i=hist.length-1;i>=0&&hist[i].y&&hist[i].D===last.D;i--)run++;
+  let streak=0;for(let i=hist.length-1;i>=0&&hist[i].y;i--)streak++;
+  const ok=allowed.filter(v=>pf(v)>=TARGET-BAND),best=ok.length?Math.max(...ok):null;
+  if(best!==null&&last&&best>last.D)return{d:best,why:'hardest level near the 85% target'};
+  // mastery step-up: 3 first-try solves in a row at this level -> go up; 6 in a row -> jump 2 levels
+  if(last&&run>=3&&last.D<MAX_D){
+    if(streak>=6&&allowed.includes(last.D+2)&&pf(last.D+2)>=0.5)return{d:last.D+2,why:'fast step-up (6 in a row)'};
+    if(pf(last.D+1)>=0.6)return{d:last.D+1,why:'mastery step-up (3 in a row)'};
+  }
+  if(best!==null)return{d:best,why:'hardest level near the 85% target'};
+  if(last&&last.y)return{d:last.D,why:'stay after a solve'};
+  return{d:allowed.reduce((b,v)=>pf(v)>pf(b)?v:b,allowed[0]),why:'highest predicted success'};
+}
+
+// ---------- MLP-driven selection (ours): no step-up rules ----------
+// The generator makes candidates at every level within 3 of the last challenge (a safety limit on jumps only).
+// The MLP predicts this learner's chance of solving each one, and the game serves the candidate whose
+// predicted first-try success is closest to the 85% target. Strong players get harder code because the model
+// predicts high success for them; struggling players get easier code because it predicts low success.
+const WINDOW=3,PER_LEVEL=2;
+function candidateLevels(hist){if(!hist.length)return[1]; // everyone starts at level 1
+  const ref=hist[hist.length-1].D,out=[];for(let v=Math.max(1,ref-WINDOW);v<=Math.min(MAX_D,ref+WINDOW);v++)out.push(v);return out;}
+function pickClosest(list,pf){let best=null,bs=Infinity,bp=0;for(const c of list){const p=pf(c),s=Math.abs(p-TARGET)-0.002*c.D;if(s<bs){bs=s;best=c;bp=p;}}return{c:best,p:bp};}
+
+// ---------- simulated datasets ----------
+// level choice varies by learner: random levels, levels near the learner's skill, a staircase from level 1,
+// or (with a model) the adaptive policy itself with 25% exploration
+function simulateDataset(nL,nA,r,startId,model){
+  const rows=[];
+  for(let i=0;i<nL;i++){
+    const L=makeLearner(r),hist=[],u=r(),how=model?'policy':u<1/3?'random':u<2/3?'near':'stair';let stair=1;
+    for(let t=0;t<nA;t++){
+      let ch;
+      if(how==='policy'){
+        const list=[];for(const v of candidateLevels(hist))for(let k=0;k<PER_LEVEL;k++)list.push(fromPool(v,r));
+        ch=r()<0.25?list[Math.floor(r()*list.length)]:pickClosest(list,c=>model.predict(featurize(hist,c))).c;
+      }else{
+        const d=how==='stair'?stair:Math.max(1,Math.min(MAX_D,how==='random'?1+Math.floor(r()*12):Math.round(L.s+gauss(r)*1.2)));
+        ch=fromPool(d,r);
+      }
+      const x=featurize(hist,ch),pRule=ruleP(hist,ch),o=learnerAttempt(L,ch);
+      rows.push({learner:startId+i,t,D:ch.D,concept:ch.concept,feat:ch.feat,x,y:o.y,pRule,solved:o.solved?1:0,attempts:o.attempts,hint:o.hint,tfrac:o.tfrac});
+      hist.push({D:ch.D,concept:ch.concept,y:o.y,tfrac:o.tfrac,hint:o.hint,attempts:o.attempts});
+      stair=Math.max(1,Math.min(MAX_D,stair+(o.y?1:-1)));
+    }
+  }
+  return rows;
+}
+// two stages: (1) random / near-skill / staircase learners; (2) learners playing under the adaptive policy with the stage-1 model
+function trainModels(r,nL,id0){
+  const s1=simulateDataset(nL,30,r,id0);
+  const test=x=>x.learner%5===0,m=new MLP([NF,16,8,1],r);
+  const tr1=s1.filter(x=>!test(x));m.fit(tr1.map(x=>x.x),tr1.map(x=>x.y),{epochs:10,rnd:r});
+  const s2=simulateDataset(nL,30,r,id0+5000,m);
+  const rows=[...s1,...s2],tr=rows.filter(x=>!test(x)),va=rows.filter(test);
+  m.fit(tr.map(x=>x.x),tr.map(x=>x.y),{epochs:6,rnd:r});
+  const l=new LogReg(NF);l.fit(tr.map(x=>x.x),tr.map(x=>x.y),{rnd:r});
+  return{mlp:m,lr:l,bkt:fitBKT(tr),tr,va};
+}
+
+// ---------- pretraining for live play ----------
+const pre=mulberry32(20261015);
+POOL=buildPool(777,40);
+let net=null,lin=null,bktModel=null,NET0=null,LIN0=null;const PRETRAIN={};
+// every run starts from the same pretrained models, so one player's run never changes the next player's game
+function cloneModel(m){const c=Object.create(Object.getPrototypeOf(m));for(const k of Object.keys(m)){const v=m[k];
+  c[k]=v instanceof Float64Array?v.slice():Array.isArray(v)?v.map(a=>a instanceof Float64Array?a.slice():a):v;}return c;}
+(function(){
+  const M=trainModels(pre,90,0);net=M.mlp;lin=M.lr;bktModel=M.bkt;NET0=cloneModel(net);LIN0=cloneModel(lin);
+  const ys=M.va.map(r=>r.y);
+  Object.assign(PRETRAIN,{n:M.tr.length,nL:new Set(M.tr.map(x=>x.learner)).size,nVal:M.va.length,
+    mlp:metrics(M.va.map(r=>net.predict(r.x)),ys),lr:metrics(M.va.map(r=>lin.predict(r.x)),ys),bkt:metrics(bktPredictRows(bktModel,M.va),ys),rule:metrics(M.va.map(r=>r.pRule),ys)});
+})();
+
+// ---------- game state ----------
+const FLOORS=3,ROOMS_PER_FLOOR=4,BOSS_HP=3,HEARTS=5;
+const $=id=>document.getElementById(id);
+let mode='adaptive',S=null,timerRAF=null,reveal=false;
+document.querySelectorAll('.gameName').forEach(el=>el.innerHTML=`${NAME[0]}<span>${NAME[1]}</span>`);
+document.title=NAME_FULL;
+function loadLog(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){return[]}}
+function saveLog(rows){try{localStorage.setItem(LOG_KEY,JSON.stringify(rows))}catch(e){}}
+function seg(id,cb){document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.remove('sel'));b.classList.add('sel');cb(b.dataset.v);});}
+seg('segMode',v=>mode=v);
+$('chkReveal').onchange=e=>setReveal(e.target.checked);
+$('chkRevealTitle').onchange=e=>setReveal(e.target.checked);
+$('chkPanel').onchange=e=>$('side').classList.toggle('hidden',!e.target.checked);
+$('btnStart').onclick=start;$('btnAgain').onclick=()=>show('scrTitle');
+$('btnCsv').onclick=()=>downloadCsv(S.rows,`${NAME_SLUG}_${S.id}.csv`);
+$('btnCsvAll').onclick=()=>downloadCsv(loadLog(),`${NAME_SLUG}_all_runs.csv`);
+$('btnHint').onclick=useHint;
+$('btnShopGo').onclick=descend;
+$('btnEval').onclick=$('btnEval2').onclick=()=>show('scrEval');
+$('btnEvalBack').onclick=()=>show(S&&S.done?'scrEnd':'scrTitle');
+$('btnRunEval').onclick=()=>startEval();
+document.querySelectorAll('#survey .rate').forEach(b=>b.onclick=()=>answerSurvey(+b.dataset.v));
+
+function show(id){['scrTitle','scrGame','scrEnd','scrEval','scrPre'].forEach(s=>$(s).classList.toggle('hidden',s!==id));$('wrap').classList.toggle('wide',id==='scrEval');$('wrap').classList.toggle('pre',id==='scrPre');window.scrollTo(0,0);}
+function start(){
+  const pc=($('participant').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'').slice(0,20);
+  net=cloneModel(NET0);lin=cloneModel(LIN0);
+  S={id:Date.now().toString(36),participant:pc,mode,turn:0,floor:1,room:1,boss:false,bossHp:BOSS_HP,hearts:HEARTS,score:0,hist:[],rows:[],ev:[],bkt:{},hints:0,floorD:[],done:false,result:'',
+    coins:0,xp:0,rank:1,combo:0,bestCombo:0,crits:0,kills:0,shield:0,banner:false,bannerActive:false,bossesBeaten:0,flawless:0,noHintFloor:0,
+    floorHeartsLost:0,floorHints:0,mapState:{},bossShown:0,bought:[],walkX:0};
+  $('fx').innerHTML='';$('scene').className='scene';
+  if($('chkPretest').checked)startPretest();else{show('scrGame');nextTurn();}
+}
+function predictFor(hist,ch){const x=featurize(hist,ch);return{x,m:net.predict(x),l:lin.predict(x),b:bktProb(bktModel,S.bkt,ch.concept),r:ruleP(hist,ch)};}
+function chooseChallenge(){
+  if(S.mode==='fixed'){const d=Math.min(MAX_D,1+Math.floor(S.turn/2)),ch=makeBuildChallenge(d);ch.pred=predictFor(S.hist,ch);return{ch,why:'fixed schedule (same for every player)',cands:[ch]};}
+  const list=[];for(const v of candidateLevels(S.hist))for(let k=0;k<PER_LEVEL;k++){const ch=makeBuildChallenge(v);ch.pred=predictFor(S.hist,ch);list.push(ch);}
+  const{c,p}=pickClosest(list,ch=>ch.pred.m);
+  return{ch:c,why:`the MLP predicts ${Math.round(p*100)}% success for this one, the closest to 85% of ${list.length} generated candidates`,cands:list};
+}
+// ===================== battle layer (presentation only) =====================
+// Everything here is cosmetic or affects survival only (hearts/shields). The challenge itself
+// (timer, 2 tries, 1 hint, first-try label, features) is unchanged, so the logged data stays comparable.
+const MONSTERS={
+  'arithmetic':{name:'Number Slime',shape:'slime',col:'#6fcf7f'},
+  'assignment':{name:'Swap Sprite',shape:'ghost',col:'#b98cf0'},
+  'conditionals':{name:'If Imp',shape:'imp',col:'#ef8a5c'},
+  'for-loops':{name:'Loop Wraith',shape:'ghost',col:'#79a8ff'},
+  'while-loops':{name:'While Golem',shape:'golem',col:'#8fa3b8'},
+  'lists':{name:'List Mimic',shape:'mimic',col:'#c9894a'},
+  'nested':{name:'Nested Beholder',shape:'eye',col:'#d45a8f'},
+};
+const BOSSES=[{name:'The Slime King',shape:'slime',col:'#4fb36a'},{name:'The Loop Lich',shape:'ghost',col:'#8d6be0'},{name:'The Stack Titan',shape:'golem',col:'#6f86a3'}];
+function eyes(y,s=1){return`<g transform="translate(50 ${y}) scale(${s})"><circle cx="-13" cy="0" r="8" fill="#fff"/><circle cx="13" cy="0" r="8" fill="#fff"/>
+  <circle cx="-11" cy="2" r="4" fill="#12141c"/><circle cx="11" cy="2" r="4" fill="#12141c"/>
+  <path d="M-22 -10 L-6 -5 M22 -10 L6 -5" stroke="#12141c" stroke-width="3" stroke-linecap="round"/></g>`;}
+function monsterSVG(shape,col,boss){
+  const dk='rgba(0,0,0,.22)',hl='rgba(255,255,255,.25)';let g='';
+  if(shape==='slime')g=`<path d="M8 96 C8 52 26 26 50 26 C74 26 92 52 92 96 Z" fill="${col}"/><path d="M8 96 C20 88 30 98 40 92 C50 98 60 88 70 94 C80 98 86 90 92 96Z" fill="${dk}"/>
+    <ellipse cx="34" cy="44" rx="9" ry="5" fill="${hl}"/>${eyes(60)}<path d="M38 80 Q50 72 62 80" stroke="#12141c" stroke-width="3" fill="none"/>`;
+  else if(shape==='ghost')g=`<path d="M18 96 V50 C18 26 32 12 50 12 C68 12 82 26 82 50 V96 L72 86 L61 96 L50 86 L39 96 L28 86 Z" fill="${col}" opacity=".92"/>
+    <ellipse cx="36" cy="30" rx="8" ry="5" fill="${hl}"/>${eyes(46)}<ellipse cx="50" cy="70" rx="9" ry="7" fill="#12141c"/>`;
+  else if(shape==='imp')g=`<path d="M26 34 L16 6 L40 26Z M74 34 L84 6 L60 26Z" fill="#7a2f22"/><path d="M14 96 C14 54 30 28 50 28 C70 28 86 54 86 96 Z" fill="${col}"/>
+    <path d="M86 84 Q100 76 94 62 L98 58 L90 60" stroke="${col}" stroke-width="5" fill="none"/>${eyes(56)}<path d="M36 76 L44 82 L50 76 L56 82 L64 76" stroke="#12141c" stroke-width="3" fill="none"/>`;
+  else if(shape==='golem')g=`<rect x="14" y="22" width="72" height="74" rx="10" fill="${col}"/><rect x="4" y="44" width="14" height="36" rx="5" fill="${col}"/><rect x="82" y="44" width="14" height="36" rx="5" fill="${col}"/>
+    <path d="M30 30 L38 44 L32 54 M70 70 L62 80 L68 90" stroke="${dk}" stroke-width="3" fill="none"/><rect x="28" y="42" width="14" height="9" fill="#ffd96a"/><rect x="58" y="42" width="14" height="9" fill="#ffd96a"/>
+    <rect x="34" y="68" width="32" height="7" rx="2" fill="#12141c"/>`;
+  else if(shape==='mimic')g=`<rect x="10" y="50" width="80" height="46" rx="6" fill="${col}"/><path d="M14 50 L20 18 L80 18 L86 50Z" fill="${col}" transform="rotate(-12 14 50)"/>
+    <path d="M14 50 L86 50 L86 58 L14 58Z" fill="#12141c"/><path d="M16 50 L22 58 L28 50 L34 58 L40 50 L46 58 L52 50 L58 58 L64 50 L70 58 L76 50 L82 58 L86 50" fill="#fff"/>
+    <rect x="44" y="64" width="12" height="14" rx="2" fill="#f2c14e"/><circle cx="38" cy="36" r="5" fill="#ffd96a"/><circle cx="58" cy="32" r="5" fill="#ffd96a"/>
+    <rect x="10" y="86" width="80" height="4" fill="${dk}"/>`;
+  else g=`<path d="M30 30 L22 8 M50 24 L50 4 M70 30 L78 8" stroke="${col}" stroke-width="4"/><circle cx="22" cy="8" r="6" fill="#fff"/><circle cx="50" cy="4" r="6" fill="#fff"/><circle cx="78" cy="8" r="6" fill="#fff"/>
+    <circle cx="22" cy="9" r="3" fill="#12141c"/><circle cx="50" cy="5" r="3" fill="#12141c"/><circle cx="78" cy="9" r="3" fill="#12141c"/>
+    <circle cx="50" cy="60" r="36" fill="${col}"/><circle cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="58" r="8" fill="#12141c"/><path d="M33 48 L67 48" stroke="#12141c" stroke-width="4"/>
+    <path d="M34 82 L40 76 L46 82 L52 76 L58 82 L64 76" stroke="#12141c" stroke-width="3" fill="none"/>`;
+  const crown=boss?`<path d="M28 ${shape==='golem'?24:shape==='ghost'?14:28} l6 -18 l10 12 l6 -16 l6 16 l10 -12 l6 18 Z" fill="#f2c14e" stroke="#a87b16" stroke-width="2"/>`:'';
+  return`<svg viewBox="0 -10 100 110" aria-hidden="true">${g}${crown}</svg>`;
+}
+// ---- sound (tiny WebAudio synth, no files) ----
+let AC=null,muted=false;try{muted=localStorage.getItem('sb_muted')==='1'}catch(e){}
+function sfx(kind){
+  if(muted)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const P={hit:[[520,880],.12,'square',.05],crit:[[700,1400],.18,'square',.06],hurt:[[220,90],.3,'sawtooth',.06],coin:[[988,1319],.12,'triangle',.06],
+    level:[[523,659,784,1047],.45,'triangle',.07],wrong:[[300,240],.15,'square',.04],boss:[[110,82],.6,'sawtooth',.06],shield:[[600,300],.25,'sine',.08],win:[[523,659,784,1047,1319],.7,'triangle',.07]}[kind];
+  if(!P)return;const[fr,dur,type,vol]=P,t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type=type;
+  fr.forEach((f,i)=>o.frequency.setValueAtTime(f,t+i*dur/fr.length));g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+.02);
+}
+$('btnMute').onclick=()=>setMute(!muted);setTimeout(()=>setMute(muted));
+function setMute(v){muted=v;$('btnMute').textContent=v?'🔇':'🔊';try{localStorage.setItem('sb_muted',v?'1':'0')}catch(e){}}
+// ---- scene helpers ----
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function retrigger(el,cls){el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);}
+function floatText(txt,cls,x,y){x=Math.max(8,Math.min(x,$('scene').clientWidth-150));const d=document.createElement('div');d.className='dmg '+cls;d.textContent=txt;d.style.left=x+'px';d.style.top=y+'px';$('fx').appendChild(d);setTimeout(()=>d.remove(),1000);}
+function enemyXY(){const sc=$('scene').getBoundingClientRect(),e=$('enemy').getBoundingClientRect();return{x:e.left-sc.left+e.width/2-20,y:e.top-sc.top+10};}
+function heroXY(){const sc=$('scene').getBoundingClientRect(),h=$('hero').getBoundingClientRect();return{x:h.left-sc.left+10,y:h.top-sc.top-10};}
+function spawnEnemy(){
+  const c=S.cur,m=S.boss?BOSSES[(S.floor-1)%BOSSES.length]:MONSTERS[c.concept]||MONSTERS.arithmetic,en=$('enemy');
+  const same=S.boss&&S.bossShown===S.floor;
+  if(!same){en.style.transition='none';en.className='enemy out'+(S.boss?' boss':'');$('eBody').innerHTML=monsterSVG(m.shape,m.col,S.boss);void en.offsetWidth;en.style.transition='';en.className='enemy'+(S.boss?' boss':'');
+    if(S.boss){S.bossShown=S.floor;sfx('boss');banner(`${m.name}`,`Floor ${S.floor} boss · ${BOSS_HP} hits to defeat`);}}
+  $('eName').innerHTML=`${S.boss?'👑 ':''}${m.name}<small>Lv ${c.D}</small>`;
+  $('eHp').innerHTML=S.boss?Array.from({length:BOSS_HP},(_,i)=>`<i class="${i<S.bossHp?'on':''}"></i>`).join(''):'<i class="on"></i>';
+  $('tLabel').textContent=`⚔ ${m.name} attacks in`;
+}
+function renderMap(){
+  let h=`<b>Floor ${Math.min(S.floor,FLOORS)}</b>`;
+  for(let r=1;r<=ROOMS_PER_FLOOR;r++){const st=S.mapState[r];h+=`<i class="${st||''}${!S.boss&&r===S.room?' cur':''}"></i>`;}
+  h+=`<i class="skull${S.boss?' cur':''}">💀</i>`;$('map').innerHTML=h;
+}
+function renderHud(){
+  $('hudHearts').textContent='♥'.repeat(Math.max(0,S.hearts))+'♡'.repeat(Math.max(0,HEARTS-S.hearts));
+  $('hudScore').textContent=S.score;$('hudCoins').textContent=S.coins;$('hudShieldN').textContent=S.shield;
+  $('hudShield').classList.toggle('hidden',!S.shield);
+  const need=rankNeed(S.rank);$('rankTxt').textContent=`Rank ${S.rank} · ${S.xp}/${need} XP`;$('xpBar').style.width=Math.min(100,S.xp/need*100)+'%';
+  const cb=$('combo');cb.textContent=S.combo>=2?`🔥 Combo x${S.combo}`:'';cb.classList.toggle('on',S.combo>=2);
+}
+const rankNeed=r=>200+150*r;
+function gainXp(n){S.xp+=n;let up=false;while(S.xp>=rankNeed(S.rank)){S.xp-=rankNeed(S.rank);S.rank++;up=true;}if(up){sfx('level');banner(`Rank up! Rank ${S.rank}`,'Your spells grow stronger');}}
+function banner(t,sub){const b=$('banner');b.innerHTML=`${t}${sub?`<small>${sub}</small>`:''}`;b.classList.remove('hidden');retrigger(b,'banner');clearTimeout(banner.h);banner.h=setTimeout(()=>b.classList.add('hidden'),1500);}
+// hero hits: damage and coins grow with level, speed (crit) and combo
+async function heroAttack(c,dmg,crit){
+  retrigger($('hero'),'cast');sfx(crit?'crit':'hit');
+  const bolt=document.createElement('div');bolt.className='bolt'+(crit?' crit':'');$('fx').appendChild(bolt);
+  const ex=enemyXY();void bolt.offsetWidth;bolt.style.left=ex.x+'px';await wait(330);bolt.remove();
+  retrigger($('enemy'),'hurt');floatText((crit?'CRIT! ':'')+'-'+dmg,crit?'crit':'',ex.x-10,ex.y+55);
+  return{dmg,crit};
+}
+async function enemyAttack(blocked){
+  const en=$('enemy');retrigger(en,'attack');await wait(230);
+  if(blocked){retrigger($('shieldFx'),'on');sfx('shield');const h=heroXY();floatText('BLOCKED','coin',h.x,h.y);await wait(380);return true;}
+  retrigger($('hero'),'hurt');retrigger($('scene'),'flashred');sfx('hurt');const h=heroXY();floatText('-1 ♥','bad',h.x,h.y);await wait(380);return false;
+}
+// ---- camp / shop between floors ----
+const SHOP=[
+  {id:'heal',ic:'🧪',name:'Healing potion',desc:'Restore 1 heart (max 5).',price:50,ok:()=>S.hearts<HEARTS,use:()=>{S.hearts++;}},
+  {id:'shield',ic:'🛡',name:'Code shield',desc:'Blocks the next heart you would lose.',price:60,ok:()=>true,use:()=>{S.shield++;}},
+  {id:'banner',ic:'🚩',name:'War banner',desc:'Double score on the next floor.',price:50,ok:()=>!S.banner,use:()=>{S.banner=true;}},
+];
+function openShop(){
+  $('shopFloor').textContent=S.floor+1;const draw=()=>{$('shopCoins').textContent=S.coins;
+    $('shopGrid').innerHTML=SHOP.map(it=>`<button class="item" data-id="${it.id}" ${S.coins<it.price||!it.ok()?'disabled':''}><span class="ic">${it.ic}</span><b>${it.name}</b><small>${it.desc}</small><span class="price">🪙 ${it.price}</span></button>`).join('');
+    document.querySelectorAll('#shopGrid .item').forEach(b=>b.onclick=()=>{const it=SHOP.find(x=>x.id===b.dataset.id);if(S.coins<it.price||!it.ok())return;S.coins-=it.price;it.use();S.bought.push(it.id);sfx('coin');renderHud();draw();});};
+  draw();$('shop').classList.remove('hidden');
+}
+function badgeList(){
+  const at=S.rows.filter(r=>r.event==='attempt');
+  return[
+    {ic:'👑',n:'Boss slayer',d:'Defeat all 3 bosses',got:S.bossesBeaten>=FLOORS},
+    {ic:'💎',n:'Flawless floor',d:'Clear a floor without losing a heart',got:S.flawless>0},
+    {ic:'⚡',n:'Speed coder',d:'Land 5 critical hits',got:S.crits>=5},
+    {ic:'🔥',n:'Combo master',d:'Reach a x5 combo',got:S.bestCombo>=5},
+    {ic:'🧠',n:'Deep tracer',d:'Solve a level 10+ challenge',got:at.some(r=>r.solved&&r.level>=10)},
+    {ic:'🎯',n:'No hints needed',d:'Finish a floor without hints',got:S.noHintFloor>0},
+  ];
+}
+
+// ===================== Code Builder: blocks, decoys, workspace, checking =====================
+const MAX_RUNS=3;
+let BID=0,DRAG=null;
+const isHead=k=>k==='for'||k==='while'||k==='if'||k==='elif'||k==='else';
+const escH=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function forSrc(n){const r=n.step!==1?`range(${n.start}, ${n.stop}, ${n.step})`:n.start!==0?`range(${n.start}, ${n.stop})`:`range(${n.stop})`;return`for ${n.v} in ${r}:`;}
+function blockText(b){const n=b.node;switch(b.kind){
+  case'simple':return n.t==='assign'?`${n.v} = ${exprSrc(n.e)}`:n.t==='list'?`${n.v} = [${n.items.join(', ')}]`:n.t==='aug'?`${n.v} ${n.op} ${exprSrc(n.e)}`:`${n.v}.append(${exprSrc(n.e)})`;
+  case'for':return forSrc(n);case'while':return`while ${exprSrc(n.cond)}:`;case'if':return`if ${exprSrc(n.cond)}:`;
+  case'elif':return`elif ${exprSrc(n.cond)}:`;case'else':return'else:';case'print':return`print(${exprSrc(n.printE)})`;}}
+const clone=o=>JSON.parse(JSON.stringify(o));
+const strip=st=>{const o=clone(st);delete o.body;delete o.elifs;delete o.els;return o;};
+// the target program as a list of line blocks (statement + indentation)
+function programBlocks(P){
+  const out=[];const mk=(kind,node,depth)=>{const b={id:++BID,kind,node,depth,decoy:false};b.text=blockText(b);out.push(b);};
+  const emit=(st,d)=>{
+    if(st.t==='for'||st.t==='while'){mk(st.t,strip(st),d);st.body.forEach(s=>emit(s,d+1));}
+    else if(st.t==='if'){mk('if',{cond:st.cond},d);st.body.forEach(s=>emit(s,d+1));
+      for(const el of st.elifs){mk('elif',{cond:el.cond},d);el.body.forEach(s=>emit(s,d+1));}
+      if(st.els){mk('else',{},d);st.els.forEach(s=>emit(s,d+1));}}
+    else mk('simple',strip(st),d);
+  };
+  P.init.forEach(s=>emit(s,0));P.body.forEach(s=>emit(s,0));mk('print',{printE:P.printE},0);
+  return out;
+}
+// builder quests use only programs where every line matters: deleting any line changes the output
+function stmtLists(P){const out=[P.init,P.body];const go=a=>a.forEach(s=>{if(s.body){out.push(s.body);go(s.body);}if(s.elifs)s.elifs.forEach(e=>{out.push(e.body);go(e.body);});if(s.els){out.push(s.els);go(s.els);}});go(P.init);go(P.body);return out;}
+function everyLineMatters(P,base){
+  const L=stmtLists(P);
+  for(let li=0;li<L.length;li++)for(let i=0;i<L[li].length;i++){
+    if(li>=2&&L[li].length===1)continue; // a block body can't be empty; removing the whole block is tested in its parent list
+    const Q=clone(P),LQ=stmtLists(Q);LQ[li].splice(i,1);
+    let out;try{out=run(Q).out;}catch(e){continue;}
+    if(out===base)return false;
+  }
+  return true;
+}
+// remove lines that don't change the output, one at a time, until every line matters
+function prune(P,base){
+  for(let guard=0;guard<40;guard++){const L=stmtLists(P);let cut=null;
+    for(let li=0;li<L.length&&!cut;li++)for(let i=0;i<L[li].length;i++){
+      if(li>=2&&L[li].length===1)continue;const Q=clone(P);stmtLists(Q)[li].splice(i,1);
+      let out;try{out=run(Q).out;}catch(e){continue;}if(out===base){cut=Q;break;}}
+    if(!cut)return P;P=cut;}
+  return P;
+}
+function makeBuildChallenge(D){
+  const cf=cfg(D);let fallback=null;
+  for(let t=0;t<60;t++){
+    let c;try{c=makeChallenge(D);}catch(e){continue;}if(!fallback)fallback=c;
+    const P=prune(clone(c.P),c.answer);let r;try{r=run(P);}catch(e){continue;}
+    if(r.out!==c.answer)continue;
+    const src=toSource(P),f=features(P,r.steps,src);
+    if(D>=3&&D<=4&&!f.conds)continue;
+    if(D>=4&&!f.loops)continue;
+    if(D>=8&&!f.nested&&f.depth<2)continue;
+    if(D>=10&&f.depth<2)continue;
+    if(f.lines<Math.max(4,cf.minLines-2))continue;
+    if(!everyLineMatters(P,c.answer))continue;
+    return Object.assign({},c,{P,code:src,feat:f,concept:mainConcept(P,f)});
+  }
+  return fallback||makeBuildChallenge(Math.max(1,D-1));
+}
+// decoys: a real line with one common mistake in it
+const FLIP={'>':'<=','<':'>=','>=':'<','<=':'>','==':'!=','!=':'=='};
+function firstNum(e){if(!e||typeof e!=='object')return null;if(e.t==='num')return e;for(const k of['a','b','e','i']){const r=firstNum(e[k]);if(r)return r;}return null;}
+function mutate(b,vars){
+  const n=clone(b.node),d={id:++BID,kind:b.kind,node:n,depth:b.depth,decoy:true};
+  switch(b.kind){
+    case'simple':
+      if(n.t==='aug'){if(chance(.5))n.op=n.op==='+='?'-=':'+=';else d.node={t:'assign',v:n.v,e:n.e};}
+      else if(n.t==='list'){n.items[rint(0,n.items.length-1)]+=rint(1,3);}
+      else{const x=firstNum(n.e);
+        if(x){const old=x.v;x.v=Math.max(0,x.v+(chance(.5)?1:-1)*rint(1,3));if(x.v===old)x.v=old+1;}
+        else if(n.e&&n.e.t==='bin')n.e.op=n.e.op==='+'?'-':'+';
+        else if(n.e&&n.e.t==='var'){const o=vars.filter(v=>v!==n.e.v&&v!==n.v);if(!o.length)return null;n.e.v=pick(o);}else return null;}
+      break;
+    case'for':if(chance(.6))n.stop+=n.step;else n.start=n.start===0?1:n.start-1;break;
+    case'while':case'if':case'elif':{const c=n.cond.t==='logic'?n.cond.a:n.cond;if(c.t!=='cmp')return null;c.op=FLIP[c.op];break;}
+    case'print':{const pe=n.printE;if(pe.t!=='var'||pe.v==='nums')return null;const o=vars.filter(v=>v!==pe.v);if(!o.length)return null;pe.v=pick(o);break;}
+    default:return null;
+  }
+  d.text=blockText(d);return d;
+}
+function makeDecoys(blocks,D,answer){
+  const want=D<=2?1:D<=6?2:3,vars=VARNAMES.slice(0,cfg(D).nVars),texts=new Set(blocks.map(b=>b.text)),out=[];
+  for(let t=0;t<80&&out.length<want;t++){const src=pick(blocks.filter(b=>b.kind!=='else')),d=mutate(src,vars);
+    if(!d||texts.has(d.text))continue;
+    const r=runBuilt(blocks.map(b=>({b:b===src?d:b,indent:b.depth})));
+    if(!r.err&&r.out===answer)continue; // a decoy must give a different result, so it can be spotted by tracing
+    texts.add(d.text);out.push(d);}
+  return out;
+}
+// turn the player's lines (block + indent) back into a program tree, with Python-like errors
+function buildFrom(lines){
+  if(!lines.length)return{err:'Your program is empty. Add blocks from the left.'};
+  const root=[],stack=[{indent:0,body:root}];let printE=null;
+  for(let i=0;i<lines.length;i++){
+    const{b,indent}=lines[i],prev=i?lines[i-1]:null,k=b.kind;
+    if(!prev&&indent>0)return{err:'IndentationError: the first line should not be indented',line:i};
+    if(prev&&isHead(prev.b.kind)&&indent!==prev.indent+1)return{err:`IndentationError: expected an indented block after line ${i}`,line:i};
+    if(prev&&!isHead(prev.b.kind)&&indent>prev.indent)return{err:'IndentationError: unexpected indent',line:i};
+    while(stack[stack.length-1].indent>indent)stack.pop();
+    const ctx=stack[stack.length-1];
+    if(ctx.indent!==indent)return{err:'IndentationError: this indent does not match any block above it',line:i};
+    if(printE)return{err:'print(...) must be the last line of the program',line:i};
+    if(k==='print'){if(indent!==0)return{err:'Put print(...) at the end, with no indent',line:i};printE=clone(b.node.printE);continue;}
+    if(k==='elif'||k==='else'){
+      const last=ctx.body[ctx.body.length-1];
+      if(!last||last.t!=='if')return{err:`SyntaxError: '${k}' needs an 'if' right above it, at the same indent`,line:i};
+      if(last.els)return{err:`SyntaxError: '${k}' cannot come after 'else'`,line:i};
+      if(k==='elif'){const br={cond:clone(b.node.cond),body:[]};last.elifs.push(br);stack.push({indent:indent+1,body:br.body});}
+      else{last.els=[];stack.push({indent:indent+1,body:last.els});}
+      continue;
+    }
+    if(k==='simple'){ctx.body.push(clone(b.node));continue;}
+    const st=k==='if'?{t:'if',cond:clone(b.node.cond),body:[],elifs:[],els:null}:Object.assign(clone(b.node),{body:[]});
+    ctx.body.push(st);stack.push({indent:indent+1,body:st.body});
+  }
+  const lastL=lines[lines.length-1];
+  if(isHead(lastL.b.kind))return{err:`IndentationError: expected an indented block after line ${lines.length}`,line:lines.length-1};
+  if(!printE)return{err:'Add the print(...) block at the end so the program shows its answer.'};
+  return{P:{init:[],body:root,printE}};
+}
+function runBuilt(lines){
+  const r=buildFrom(lines);if(r.err)return r;
+  try{const o=run(r.P);if(/undefined|NaN/.test(o.out))return{err:'NameError: the printed variable never got a value'};return{out:o.out};}
+  catch(e){const m=e.message;
+    if(!(e instanceof Halt)||m==='undef')return{err:'NameError: a variable is used before it gets a value. Check the order of your lines.'};
+    return{err:m==='while'||m==='steps'?'Your loop runs too long. Check the loop condition.':m==='index'?'IndexError: list index out of range':m==='big'?'The numbers got too big. Check your loops.':m==='long'?'The list got too long. Check your loops.':'Error: '+m};}
+}
+// ---- workspace editing ----
+function blkEl(b){const el=document.createElement('div');el.className='blk'+(isHead(b.kind)?' k-head':b.kind==='print'?' k-print':'');el.innerHTML=highlight(b.text);return el;}
+function autoIndent(pos,b){
+  const prev=S.ws[pos-1];if(b.kind==='print'||!prev)return 0;
+  if(b.kind==='elif'||b.kind==='else')return Math.max(0,prev.indent-(isHead(prev.b.kind)?0:1));
+  return isHead(prev.b.kind)?prev.indent+1:prev.indent;
+}
+function insertLine(b,pos){if(S.locked)return;S.ws.splice(pos,0,{b,indent:autoIndent(pos,b)});S.sel=pos;S.cur.moves++;S.badLine=null;sfx('coin');renderBuilder();}
+function addLine(b){insertLine(b,S.sel!=null&&S.sel<S.ws.length?S.sel+1:S.ws.length);}
+function lineAct(i,a){
+  if(S.locked||i<0||i>=S.ws.length)return;const L=S.ws;S.cur.moves++;S.badLine=null;
+  if(a==='in')L[i].indent=Math.min(4,L[i].indent+1);
+  else if(a==='out')L[i].indent=Math.max(0,L[i].indent-1);
+  else if(a==='up'&&i>0){[L[i-1],L[i]]=[L[i],L[i-1]];i--;}
+  else if(a==='down'&&i<L.length-1){[L[i+1],L[i]]=[L[i],L[i+1]];i++;}
+  else if(a==='del'){L.splice(i,1);i=Math.min(i,L.length-1);if(i<0)i=null;}
+  S.sel=i;renderBuilder();
+}
+function dropAt(pos){
+  if(!DRAG||S.locked)return;
+  if(DRAG.from==='pal'){const b=S.pal.find(x=>x.id===DRAG.id);if(b&&!S.ws.some(l=>l.b.id===b.id))insertLine(b,pos);}
+  else{const i=DRAG.i;if(i===pos||i+1===pos){DRAG=null;return;}const[l]=S.ws.splice(i,1);S.ws.splice(pos>i?pos-1:pos,0,l);S.sel=pos>i?pos-1:pos;S.cur.moves++;renderBuilder();}
+  DRAG=null;
+}
+function renderBuilder(){
+  const pal=$('palette');pal.innerHTML='';
+  const left=S.pal.filter(b=>!b.removed&&!S.ws.some(l=>l.b.id===b.id));
+  left.forEach(b=>{const el=blkEl(b);el.title='Tap to add (or drag into your program)';el.onclick=()=>addLine(b);el.draggable=true;
+    el.ondragstart=e=>{DRAG={from:'pal',id:b.id};el.classList.add('drag');try{e.dataTransfer.setData('text/plain','b')}catch(_){}};el.ondragend=()=>el.classList.remove('drag');pal.appendChild(el);});
+  if(!left.length)pal.innerHTML='<div class="note" style="margin:0">All blocks are in your program.</div>';
+  const ws=$('ws');ws.innerHTML='';
+  if(!S.ws.length)ws.innerHTML='<div class="wsempty">Your program is empty. Tap blocks on the left to add them here, then fix the indentation.</div>';
+  S.ws.forEach((l,i)=>{
+    const row=document.createElement('div');row.className='ln'+(i===S.sel?' sel':'')+(i===S.badLine?' bad':'');
+    row.innerHTML=`<span class="no">${i+1}</span><span class="code">${'<span class="guide"></span>'.repeat(l.indent)}</span><span class="tools"><button data-a="out" title="Unindent (Shift+Tab)">⇤</button><button data-a="in" title="Indent (Tab)">⇥</button><button data-a="up" title="Move up (Alt+↑)">↑</button><button data-a="down" title="Move down (Alt+↓)">↓</button><button data-a="del" title="Remove (Del)">✕</button></span>`;
+    row.querySelector('.code').appendChild(blkEl(l.b));
+    row.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(a)lineAct(i,a);else{S.sel=i;renderBuilder();}};
+    row.draggable=true;row.ondragstart=e=>{DRAG={from:'ws',i};try{e.dataTransfer.setData('text/plain','l')}catch(_){}};
+    row.ondragover=e=>{e.preventDefault();row.classList.add('dropbefore');};row.ondragleave=()=>row.classList.remove('dropbefore');
+    row.ondrop=e=>{e.preventDefault();e.stopPropagation();row.classList.remove('dropbefore');dropAt(i);};
+    ws.appendChild(row);
+  });
+  ws.ondragover=e=>e.preventDefault();ws.ondrop=e=>{e.preventDefault();dropAt(S.ws.length);};
+  const c=S.cur;$('runs').innerHTML=`Runs left <b>${'●'.repeat(MAX_RUNS-c.runs)}${'○'.repeat(c.runs)}</b>`;
+  renderQuest();
+}
+// ---- quest card (right side) ----
+const QUEST_NAMES={'arithmetic':'Count the coins','assignment':'The shifting values','conditionals':'Choose the right path','for-loops':'The repeating spell','while-loops':'Until the gate opens','lists':'Fill the treasure list','nested':'Spells within spells'};
+function renderQuest(){
+  const c=S.cur,boss=c.wasBoss,m=boss?BOSSES[(S.floor-1)%BOSSES.length]:MONSTERS[c.concept]||MONSTERS.arithmetic;
+  const used=S.ws.length,needed=c.blocks.length,hasLoop=c.feat.loops>0,hasIf=c.feat.conds>0;
+  const fit=S.ws.length>0&&!buildFrom(S.ws).err;
+  const items=[
+    [`Make the program print the target`,c.done===true],
+    [`Use exactly ${needed} blocks (${c.decoys.length} of the blocks on the left ${c.decoys.length>1?'are decoys':'is a decoy'})`,used===needed],
+    [`Get the indentation right`,fit],
+  ];
+  if(hasLoop)items.push([`Include a ${c.feat.loops>1||c.feat.nested?'loop inside the program':'loop'}`,S.ws.some(l=>l.b.kind==='for'||l.b.kind==='while')]);
+  else if(hasIf)items.push(['Include an if block',S.ws.some(l=>l.b.kind==='if')]);
+  const coins=4+2*c.D,xp=20*c.D;
+  $('questCard').innerHTML=`<h2><span>${boss?'👑 Boss quest':'📌 Quest'}</span><span class="muted" style="font-size:12px;text-transform:none;letter-spacing:0">Lv ${c.D} · ${CONCEPTS[c.concept].name}</span></h2>
+    <div class="giver"><div class="av">${monsterSVG(m.shape,m.col,boss)}</div><div><b>${boss?m.name+': seal '+c.seal+' of '+BOSS_HP:QUEST_NAMES[c.concept]||'Quest'}</b>
+    <small>${boss?'Build each spell to break a seal on the boss.':`${m.name} blocks the way. Build the spell to defeat it.`}</small></div></div>
+    <div class="goal">Build a program that prints:<br><span class="tgt">${escH(c.answer)}</span></div>
+    <ul>${items.map(([t,d])=>`<li class="${d?'done':''}"><span class="ck">${d?'✔':'☐'}</span><span>${t}</span></li>`).join('')}</ul>
+    <div class="rew"><span>🪙 ${coins}+</span><span>✨ ${xp}+ XP</span><span>⚡ crit if built fast on the first run</span></div>`;
+}
+function logQuest(ok){
+  const c=S.cur,q=$('qlog');if(!S.qlogN){q.innerHTML='';}S.qlogN=(S.qlogN||0)+1;
+  const d=document.createElement('div');d.className='e'+(ok?'':' f');d.innerHTML=`<span>${ok?'✔':'✗'} ${c.wasBoss?'Boss seal':QUEST_NAMES[c.concept]}</span><span>Lv ${c.D}${ok?` · ${c.runs} run${c.runs>1?'s':''}`:''}</span>`;q.prepend(d);
+}
+function nextTurn(){
+  if(S.hearts<=0)return finish('defeated');
+  if(S.floor>FLOORS)return finish('cleared');
+  const{ch,why,cands}=chooseChallenge();
+  const blocks=programBlocks(ch.P),decoys=makeDecoys(blocks,ch.D,ch.answer);
+  S.cur=Object.assign(ch,{why,t0:performance.now(),runs:0,outs:[],hint:false,revealed:false,moves:0,blocks,decoys,done:null,wasBoss:S.boss,seal:BOSS_HP-S.bossHp+1,
+    limit:Math.min(240,60+8*ch.feat.lines)});
+  S.pal=shuffle([...blocks,...decoys]);S.ws=[];S.sel=null;S.badLine=null;S.locked=false;
+  const c=S.cur;
+  $('hudFloor').textContent=`Floor ${S.floor}/${FLOORS} · ${S.boss?'BOSS':'Room '+S.room+'/'+ROOMS_PER_FLOOR}`;
+  $('hudTopic').innerHTML=`${CONCEPTS[c.concept].name} · Lv ${c.D}`;
+  $('qText').textContent=S.boss?`Boss fight! Build the spell to break a seal (${S.bossHp} left).`:'Build the spell: put the blocks in order and fix the indentation.';
+  $('tip').classList.add('hidden');$('btnHint').disabled=false;$('btnRun').disabled=false;$('btnClear').disabled=false;$('btnNext').classList.add('hidden');
+  $('console').innerHTML='<span class="dim">&gt;&gt;&gt; Output appears here when you run your program.</span>';$('lives').textContent='';
+  spawnEnemy();renderMap();renderHud();renderBuilder();applyReveal();renderPanel(c,cands,why);runTimer();
+}
+function setReveal(v){reveal=v;$('chkReveal').checked=v;$('chkRevealTitle').checked=v;applyReveal();}
+function applyReveal(){
+  if(!S||!S.cur||S.locked)return;
+  if(reveal){S.cur.revealed=true;$('tip').innerHTML='<b>Solution (demo mode, flagged in the log):</b><pre class="code" style="margin:6px 0 0">'+highlight(S.cur.code)+'</pre>';$('tip').classList.remove('hidden');}
+  else if(!S.cur.hint)$('tip').classList.add('hidden');
+}
+function streak(){let s=0;for(let i=S.hist.length-1;i>=0&&S.hist[i].y;i--)s++;return s;}
+function useHint(){
+  if(!S||S.locked||S.cur.hint)return;const c=S.cur;c.hint=true;S.hints++;
+  c.decoys.forEach(d=>d.removed=true);S.ws=S.ws.filter(l=>!l.b.decoy);if(S.sel!=null&&S.sel>=S.ws.length)S.sel=S.ws.length?S.ws.length-1:null;
+  $('tip').innerHTML='💡 The decoy blocks are gone. '+escH(CONCEPTS[c.concept].tip);$('tip').classList.remove('hidden');$('btnHint').disabled=true;renderBuilder();
+}
+function runTimer(){
+  cancelAnimationFrame(timerRAF);
+  const tick=()=>{const el=(performance.now()-S.cur.t0)/1000,f=Math.max(0,1-el/S.cur.limit),bar=$('timerBar');
+    bar.style.width=(f*100)+'%';$('tSecs').textContent=Math.ceil(f*S.cur.limit)+'s';bar.style.background=f<.25?'var(--bad)':f<.5?'var(--accent2)':'var(--accent)';
+    if(f<=0&&!S.locked){finishQuest(false,true);return;}if(!S.locked)timerRAF=requestAnimationFrame(tick);};
+  timerRAF=requestAnimationFrame(tick);
+}
+function runProgram(){
+  if(!S||S.locked)return;const c=S.cur;
+  if(!S.ws.length){$('console').innerHTML='<span class="err">Your program is empty. Tap blocks on the left to add them.</span>';return;}
+  const need=c.blocks.length;
+  if(S.ws.length<need){$('console').innerHTML=`<span class="err">Your program has ${S.ws.length} block${S.ws.length>1?'s':''}, but this quest needs exactly ${need}. Every real block must be used (decoys stay out).</span>\n<span class="dim">Not counted as a run.</span>`;return;}
+  if(S.ws.length>need){$('console').innerHTML=`<span class="err">Your program has ${S.ws.length} blocks, but this quest needs exactly ${need}. Something in there doesn't belong.</span>\n<span class="dim">Not counted as a run.</span>`;return;}
+  const r=runBuilt(S.ws);c.runs++;S.badLine=r.line??null;let ok=false;
+  if(r.err){c.outs.push('ERROR: '+r.err);$('console').innerHTML=`<span class="dim">Run ${c.runs}/${MAX_RUNS}</span>\n<span class="err">✗ ${escH(r.err)}</span>`;}
+  else{const hasDecoy=S.ws.some(l=>l.b.decoy);ok=r.out===c.answer&&!hasDecoy;c.outs.push(r.out);
+    $('console').innerHTML=`<span class="dim">Run ${c.runs}/${MAX_RUNS}</span>\n&gt;&gt;&gt; ${escH(r.out)}\n`+(ok?`<span class="ok">✓ It prints ${escH(c.answer)}. Spell cast!</span>`:r.out===c.answer?`<span class="err">✗ Right output, but one of your blocks is a decoy. Use only the real blocks.</span>`:`<span class="err">✗ The quest needs ${escH(c.answer)}.</span>`);}
+  if(ok)return finishQuest(true,false);
+  if(c.runs>=MAX_RUNS)return finishQuest(false,false);
+  $('console').innerHTML+=`\n<span class="dim">${MAX_RUNS-c.runs} run${MAX_RUNS-c.runs>1?'s':''} left. Fix your program and run again.</span>`;
+  retrigger($('enemy'),'angry');sfx('wrong');toast('The spell fizzled! Fix it and try again.','var(--accent2)');renderBuilder();
+}
+function finishQuest(solved,timedOut){
+  if(S.locked)return;const c=S.cur;S.locked=true;cancelAnimationFrame(timerRAF);c.done=solved;
+  const secs=Math.min(c.limit,(performance.now()-c.t0)/1000),tfrac=secs/c.limit,attempts=Math.max(1,c.runs);
+  const y=solved&&c.runs===1&&!c.hint?1:0;
+  ['btnRun','btnHint','btnClear'].forEach(id=>$(id).disabled=true);
+  const p=c.pred;S.ev.push({y,m:p.m,l:p.l,b:p.b,r:p.r});
+  // battle state (survival + rewards only; the challenge data is unchanged)
+  const wasBoss=S.boss,crit=!!(y&&tfrac<0.35);let blocked=false;
+  S.combo=y?S.combo+1:0;S.bestCombo=Math.max(S.bestCombo,S.combo);if(crit)S.crits++;if(c.hint)S.floorHints++;
+  const mult=(1+0.25*Math.max(0,S.combo-1))*(crit?1.5:1)*(c.hint?0.75:1)*(attempts>1?0.6:1);
+  const dmg=solved?Math.round(20*c.D*mult)+(wasBoss?10:0):0;
+  let coinGain=solved?4+2*c.D+(crit?5:0):0;
+  if(solved)S.score+=dmg*5*(S.bannerActive?2:1);
+  else if(S.shield>0){S.shield--;blocked=true;}else{S.hearts--;S.floorHeartsLost++;}
+  const prog=S.ws.map(l=>'    '.repeat(l.indent)+l.b.text).join('\n');
+  const row={event:'attempt',task:'build',participant:S.participant,session:S.id,mode:S.mode,turn:S.turn+1,floor:S.floor,room:wasBoss?'boss':String(S.room),
+    level:c.D,concept:c.concept,lines:c.feat.lines,depth:c.feat.depth,loops:c.feat.loops,steps:c.feat.steps,has_list:c.feat.hasList,selection:c.why,
+    ...Object.fromEntries(FEATS.map(([k],i)=>[k,p.x[i].toFixed(4)])),
+    p_mlp:p.m.toFixed(4),p_lr:p.l.toFixed(4),p_bkt:p.b.toFixed(4),p_rule:p.r.toFixed(4),
+    label_first_try:y,solved:solved?1:0,attempts,hints_used:c.hint?1:0,response_s:secs.toFixed(2),timed_out:timedOut?1:0,
+    run_1:c.outs[0]??'',run_2:c.outs[1]??'',run_3:c.outs[2]??'',answer:c.answer,
+    blocks_needed:c.blocks.length,decoys_given:c.decoys.length,decoys_used:S.ws.filter(l=>l.b.decoy).length,lines_final:S.ws.length,moves:c.moves,final_program:prog,
+    answer_shown:c.revealed?1:0,hearts_left:S.hearts,shield_blocked:blocked?1:0,combo:S.combo,crit:crit?1:0,survey_rating:'',timestamp:new Date().toISOString()};
+  S.rows.push(row);
+  for(let k=0;k<3;k++){net.trainOne(p.x,y,0.002);lin.trainOne(p.x,y,0.02);}
+  bktUpdate(bktModel,S.bkt,c.concept,y);
+  S.hist.push({D:c.D,concept:c.concept,y,tfrac,hint:c.hint?1:0,attempts});S.floorD.push(c.D);S.turn++;
+  // progress through the dungeon
+  let after=nextTurn,msg,killed=false;
+  if(wasBoss){
+    if(solved){S.bossHp--;killed=S.bossHp<=0;msg=killed?'Boss defeated!':`Seal broken! Boss HP ${S.bossHp}/${BOSS_HP}`;}
+    else msg=timedOut?'Too slow! The boss strikes.':'Out of runs! The boss strikes back.';
+    if(killed){S.bossesBeaten++;S.kills++;coinGain+=40;if(S.floorHeartsLost===0)S.flawless++;if(S.floorHints===0)S.noHintFloor++;after=()=>openSurvey();}
+  }else{
+    killed=solved;S.mapState[S.room]=solved?'done':'fail';if(solved)S.kills++;
+    msg=solved?(crit?'Critical hit!':y?'Quest complete!':'Quest complete (with help)'):timedOut?'Too slow! It strikes first.':'Out of runs! It hits you.';
+    S.room++;if(S.room>ROOMS_PER_FLOOR){S.boss=true;S.bossHp=BOSS_HP;}
+  }
+  S.coins+=coinGain;row.coins=S.coins;const log=loadLog();log.push(row);saveLog(log);
+  logQuest(solved);renderQuest();renderMetrics();
+  if(!solved)$('console').innerHTML+=`\n\n<span class="dim">${timedOut?'Time is up. ':''}One correct program:</span>\n${highlight(c.code)}`;
+  (async()=>{
+    if(solved){
+      await heroAttack(c,dmg,crit);
+      if(S.combo>=2)retrigger($('combo'),'pop');
+      if(wasBoss)$('eHp').innerHTML=Array.from({length:BOSS_HP},(_,i)=>`<i class="${i<S.bossHp?'on':''}"></i>`).join('');
+      toast(msg,crit?'var(--accent2)':'var(--accent)');
+      if(killed){await wait(220);$('enemy').classList.add('die');const ex=enemyXY();sfx('coin');floatText(`+${coinGain} 🪙`,'coin',ex.x,ex.y+30);}
+      gainXp(killed?dmg+(wasBoss?60:0):dmg);renderHud();
+      await wait(killed?900:800);
+      if(!wasBoss)await walkOn();
+      after();
+    }else{
+      toast(msg,'var(--bad)');await wait(250);await enemyAttack(blocked);renderHud();gainXp(3);
+      const nb=$('btnNext');nb.classList.remove('hidden');nb.textContent=S.hearts<=0?'See results ▶':'Next quest ▶';
+      nb.onclick=async()=>{nb.classList.add('hidden');if(!wasBoss&&S.hearts>0){$('enemy').classList.add('out');await wait(350);await walkOn();}after();};
+    }
+  })();
+}
+async function walkOn(){
+  S.walkX-=180;const sc=$('scene');sc.classList.add('walking');
+  sc.querySelector('.wallbricks').style.backgroundPosition=sc.querySelector('.floor').style.backgroundPosition=S.walkX+'px 0';
+  await wait(850);sc.classList.remove('walking');
+}
+// ---------- pre-test: the same 8 tracing questions for every player (an independent skill measure) ----------
+// Generated once with a fixed seed, so every student gets identical items. Results are logged but never fed to the models.
+const PRE_LEVELS=[1,2,3,4,6,8,10,12];
+const PRETEST=(()=>{const keep=RNG;RNG=mulberry32(4242);const items=PRE_LEVELS.map(D=>{const c=makeBuildChallenge(D);return{D,code:c.code,answer:c.answer,options:c.options,concept:c.concept};});RNG=keep;return items;})();
+let PRE=null;
+function logRow(o){const row={event:o.event,participant:S.participant,session:S.id,mode:S.mode,...o,timestamp:new Date().toISOString()};S.rows.push(row);const log=loadLog();log.push(row);saveLog(log);}
+function startPretest(){PRE={i:0,score:0,w:0,t0:0};show('scrPre');showPre();}
+function showPre(){
+  const it=PRETEST[PRE.i];$('preInfo').textContent=`Question ${PRE.i+1} of ${PRETEST.length} · this does not affect the game`;$('preBar').style.width=(PRE.i/PRETEST.length*100)+'%';
+  $('preCode').innerHTML=highlight(it.code);const box=$('preOpts');box.innerHTML='';
+  it.options.forEach((o,k)=>{const bt=document.createElement('button');bt.className='popt';bt.dataset.val=o;bt.innerHTML=`<span class="k">${'ABCD'[k]}</span>`;bt.appendChild(document.createTextNode(o));bt.onclick=()=>answerPre(o);box.appendChild(bt);});
+  PRE.t0=performance.now();
+}
+function answerPre(choice){
+  if(!PRE||PRE.i>=PRETEST.length)return;const it=PRETEST[PRE.i],ok=choice===it.answer?1:0;PRE.score+=ok;PRE.w+=ok*it.D;
+  logRow({event:'pretest',item:PRE.i+1,level:it.D,concept:it.concept,choice:choice??'skip',answer:it.answer,correct:ok,response_s:((performance.now()-PRE.t0)/1000).toFixed(2)});
+  PRE.i++;if(PRE.i<PRETEST.length)return showPre();
+  S.pretest={score:PRE.score,max:PRETEST.length,weighted:PRE.w,weightedMax:PRE_LEVELS.reduce((a,x)=>a+x,0)};
+  logRow({event:'pretest_summary',pretest_score:PRE.score,pretest_max:PRETEST.length,pretest_weighted:PRE.w,pretest_weighted_max:S.pretest.weightedMax});
+  show('scrGame');nextTurn();
+}
+$('btnPreSkip').onclick=()=>answerPre(null);
+document.addEventListener('keydown',e=>{if($('scrPre').classList.contains('hidden')||!PRE)return;const k=e.key.toLowerCase();
+  const i='abcd'.includes(k)&&k.length===1?'abcd'.indexOf(k):'1234'.includes(k)&&k.length===1?+k-1:-1;const bt=document.querySelectorAll('#preOpts .popt')[i];if(bt){e.preventDefault();bt.click();}});
+// validation survey after each boss: did the difficulty match the player?
+function openSurvey(){$('survey').classList.remove('hidden');$('surveyFloor').textContent=S.floor;}
+function answerSurvey(v){
+  $('survey').classList.add('hidden');
+  const fd=S.floorD.slice();const row={event:'survey',participant:S.participant,session:S.id,mode:S.mode,turn:S.turn,floor:S.floor,room:'survey',
+    level:(fd.reduce((s,x)=>s+x,0)/fd.length).toFixed(2),survey_rating:v,timestamp:new Date().toISOString()};
+  S.rows.push(row);const log=loadLog();log.push(row);saveLog(log);
+  if(S.floor<FLOORS)openShop();else{S.floor++;nextTurn();}
+}
+function descend(){
+  $('shop').classList.add('hidden');S.floor++;S.room=1;S.boss=false;S.floorD=[];S.mapState={};
+  S.bannerActive=S.banner;S.banner=false;S.floorHeartsLost=0;S.floorHints=0;
+  banner(`Floor ${S.floor}`,S.bannerActive?'War banner raised: double score!':'Deeper into the dungeon');nextTurn();
+}
+function toast(t,color){const el=$('toast');el.textContent=t;el.style.color=color;el.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>el.classList.remove('show'),1300);}
+const pc=v=>Math.round(v*100)+'%';
+function renderPanel(cur,cands,why){
+  const list=(Array.isArray(cands)?cands:Object.values(cands)).slice().sort((a,b)=>a.D-b.D||a.pred.m-b.pred.m);
+  $('predBody').innerHTML=list.map(c=>{const p=c.pred,v=c.D;return`<tr class="${c===cur?'chosen':''}"><td>${v}</td>
+    <td style="font-size:12px">${c.feat.lines} lines · depth ${c.feat.depth}</td>
+    <td><div class="bar"><i style="width:${p.m*100}%"></i><span class="tgt" style="left:${TARGET*100}%"></span></div></td>
+    <td class="mono">${pc(p.m)}</td><td class="mono muted">${pc(p.l)}</td><td class="mono muted">${pc(p.b)}</td><td class="mono muted">${pc(p.r)}</td></tr>`;}).join('');
+  $('whyNote').textContent=why?'Why this one: '+why+'.':'';
+  const x=cur.pred.x;
+  $('featBox').innerHTML=FEATS.map(([,n],i)=>`<span>${n}</span><span>${x[i].toFixed(2)}</span>`).join('');
+  renderMetrics();
+}
+function runAcc(key){const n=S&&S.ev?S.ev.length:0;return n?pc(S.ev.filter(e=>(e[key]>=.5)===!!e.y).length/n):'–';}
+function renderMetrics(){
+  const n=S&&S.ev?S.ev.length:0,sr=n?pc(S.hist.filter(h=>h.y).length/n):'–';
+  $('metricBox').innerHTML=`<div class="metric"><span>Mode</span><b>${S&&S.mode?S.mode:'–'}</b></div>
+    <div class="metric"><span>First-try success (target 85%)</span><b>${sr}</b></div>
+    <div class="metric"><span>MLP accuracy this run</span><b>${runAcc('m')}</b></div>
+    <div class="metric"><span>Logistic regression</span><b>${runAcc('l')}</b></div>
+    <div class="metric"><span>BKT</span><b>${runAcc('b')}</b></div>
+    <div class="metric"><span>Rule-based</span><b>${runAcc('r')}</b></div>`;
+}
+$('pretrainNote').innerHTML=`Pretrained on ${PRETRAIN.n.toLocaleString()} simulated attempts (${PRETRAIN.nL} learners). Held-out test (${PRETRAIN.nVal.toLocaleString()} attempts, unseen learners), AUC:
+  MLP ${PRETRAIN.mlp.auc.toFixed(2)} · LR ${PRETRAIN.lr.auc.toFixed(2)} · BKT ${PRETRAIN.bkt.auc.toFixed(2)} · Rule ${PRETRAIN.rule.auc.toFixed(2)}. The models keep learning from each of your answers.`;
+function finish(result){
+  S.done=true;S.result=result;show('scrEnd');
+  const at=S.rows.filter(r=>r.event==='attempt'),n=at.length,ok=S.hist.filter(h=>h.y).length,sv=S.rows.filter(r=>r.event==='survey');
+  $('endTitle').innerHTML=result==='cleared'?'Dungeon <span>cleared</span>':'Out of <span>hearts</span>';
+  $('endMode').textContent=(S.mode==='adaptive'?'Mode: Adaptive (MLP generated each challenge)':'Mode: Fixed schedule')+` · Reached floor ${Math.min(S.floor,FLOORS)} of ${FLOORS}`+(S.participant?` · Participant ${S.participant}`:'');
+  $('stScore').textContent=S.score;$('stRate').textContent=n?pc(ok/n):'–';
+  $('stLevel').textContent=Math.max(0,...at.filter(r=>r.solved).map(r=>r.level));
+  $('stSolved').textContent=n?pc(at.filter(r=>r.solved).length/n):'–';$('stHints').textContent=S.hints;
+  $('stPre').textContent=S.pretest?`${S.pretest.score} / ${S.pretest.max}`:'–';
+  $('stSurvey').textContent=sv.length?(sv.reduce((s,r)=>s+r.survey_rating,0)/sv.length).toFixed(1)+' / 5':'–';
+  $('stRank').textContent=S.rank;$('stKills').textContent=S.kills;$('stCombo').textContent='x'+S.bestCombo;
+  $('badges').innerHTML=badgeList().map(b=>`<div class="badge${b.got?'':' locked'}"><span class="bi">${b.ic}</span><div><b>${b.n}</b><small>${b.d}</small></div></div>`).join('');
+  sfx(result==='cleared'?'win':'hurt');
+  $('stMlp').textContent=runAcc('m');$('stLr').textContent=runAcc('l');$('stBkt').textContent=runAcc('b');$('stRule').textContent=runAcc('r');
+}
+function downloadCsv(rows,name){
+  if(!rows||!rows.length)return;const keys=[];rows.forEach(r=>Object.keys(r).forEach(k=>{if(!keys.includes(k))keys.push(k);}));
+  const esc=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const csv=[keys.join(','),...rows.map(r=>keys.map(k=>esc(r[k])).join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+function highlight(src){
+  const esc=src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc.replace(/\b(if|elif|else|for|in|while|and|or|not)\b|\b(print|range|len|sum|append)\b|\b(\d+)\b/g,
+    (m,k,f,n)=>k?`<span class="kw">${k}</span>`:f?`<span class="fn">${f}</span>`:`<span class="num">${n}</span>`);
+}
+$('btnRun').onclick=runProgram;
+$('btnClear').onclick=()=>{if(!S||S.locked)return;S.ws=[];S.sel=null;S.badLine=null;S.cur.moves++;renderBuilder();};
+document.addEventListener('keydown',e=>{
+  if(!S||$('scrGame').classList.contains('hidden')||!$('survey').classList.contains('hidden')||!$('shop').classList.contains('hidden'))return;
+  const k=e.key;
+  if(S.locked){if(k==='Enter'&&!$('btnNext').classList.contains('hidden')){e.preventDefault();$('btnNext').click();}return;}
+  if(k==='Enter'){e.preventDefault();runProgram();return;}
+  if(k.toLowerCase()==='h'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){useHint();return;}
+  if(S.sel==null)return;
+  if(k==='Tab'){e.preventDefault();lineAct(S.sel,e.shiftKey?'out':'in');}
+  else if(e.altKey&&k==='ArrowUp'){e.preventDefault();lineAct(S.sel,'up');}
+  else if(e.altKey&&k==='ArrowDown'){e.preventDefault();lineAct(S.sel,'down');}
+  else if(k==='ArrowUp'){e.preventDefault();S.sel=Math.max(0,S.sel-1);renderBuilder();}
+  else if(k==='ArrowDown'){e.preventDefault();S.sel=Math.min(S.ws.length-1,S.sel+1);renderBuilder();}
+  else if(k==='Delete'||k==='Backspace'){e.preventDefault();lineAct(S.sel,'del');}
+});
+
+// =====================================================================
+// Thesis evaluation (simulated learners)
+// =====================================================================
+const MODELS=[['mlp','MLP (ours)'],['lr','Logistic regression'],['bkt','BKT'],['rule','Rule-based']];
+let EVAL=null;
+function pearson(a,b){const n=a.length,ma=a.reduce((s,x)=>s+x,0)/n,mb=b.reduce((s,x)=>s+x,0)/n;let sab=0,sa=0,sb=0;for(let i=0;i<n;i++){sab+=(a[i]-ma)*(b[i]-mb);sa+=(a[i]-ma)**2;sb+=(b[i]-mb)**2;}return sab/Math.sqrt(sa*sb);}
+function policySim(models,seed,nL){
+  const pols=[['fixed','Fixed schedule'],['rule','Rule-based staircase'],['mlp','MLP-driven (ours)']],out=[],T=21;
+  for(const[key,label]of pols){let sr=0,gap=0,avgLv=0;const skills=[],levels=[];
+    for(let i=0;i<nL;i++){const r=mulberry32(seed*31+i),L=makeLearner(r),hist=[];
+      for(let t=0;t<T;t++){
+        let c;
+        if(key==='mlp'){const list=[];for(const v of candidateLevels(hist))for(let k=0;k<PER_LEVEL;k++)list.push(fromPool(v,r));
+          c=pickClosest(list,x=>models.mlp.predict(featurize(hist,x))).c;}
+        else{const lv=key==='fixed'?[Math.min(MAX_D,1+Math.floor(t/2))]:allowedLevels(hist),cands={};for(const v of lv)cands[v]=fromPool(v,r);
+          const d=pickLevelWhy(key==='fixed'?'fixed':'adaptive',t,hist,v=>cands[v]?ruleP(hist,cands[v]):0).d;c=cands[d]||fromPool(d,r);}
+        const o=learnerAttempt(L,c);
+        hist.push({D:c.D,concept:c.concept,y:o.y,tfrac:o.tfrac,hint:o.hint,attempts:o.attempts});}
+      const rate=hist.filter(h=>h.y).length/T;sr+=rate;gap+=Math.abs(rate-TARGET);avgLv+=hist.reduce((s,h)=>s+h.D,0)/T;
+      skills.push(L.s);levels.push(hist.slice(-6).reduce((s,h)=>s+h.D,0)/6);}
+    out.push({key,label,rate:sr/nL,gap:gap/nL,avgLv:avgLv/nL,match:pearson(skills,levels)});}
+  return out;
+}
+function startEval(seed){
+  seed=seed||20261015;$('btnRunEval').disabled=true;$('evalStatus').textContent='Simulating learners and training the models… (a few seconds)';
+  setTimeout(()=>{try{EVAL=runEval(seed);renderEval();$('evalStatus').textContent='';}catch(err){$('evalStatus').textContent='Error: '+err.message;console.error(err);}
+    $('btnRunEval').disabled=false;$('btnRunEval').textContent='Re-run with a new seed';$('btnRunEval').onclick=()=>startEval(1+Math.floor(Math.random()*1e6));},40);
+}
+function runEval(seed){
+  const t0=performance.now(),r=mulberry32(seed);
+  const M=trainModels(r,160,0);
+  const te=M.va,ys=te.map(x=>x.y);
+  const P={mlp:te.map(x=>M.mlp.predict(x.x)),lr:te.map(x=>M.lr.predict(x.x)),bkt:bktPredictRows(M.bkt,te),rule:te.map(x=>x.pRule)};
+  const all={},bands={};
+  const BANDS=[['Easy (levels 1–3)',d=>d<=3],['Medium (4–7)',d=>d>=4&&d<=7],['Hard (8+)',d=>d>=8]];
+  for(const[k]of MODELS){all[k]=metrics(P[k],ys);
+    bands[k]=BANDS.map(([,f])=>{const idx=te.map((x,i)=>f(x.D)?i:-1).filter(i=>i>=0);return metrics(idx.map(i=>P[k][i]),idx.map(i=>ys[i]));});}
+  const bandN=BANDS.map(([,f])=>te.filter(x=>f(x.D)).length);
+  const policy=policySim(M,seed,150);
+  const log=loadLog().filter(x=>x.event==='attempt'&&x.p_mlp!==undefined&&+x.answer_shown!==1);
+  let real=null;if(log.length>=10){const ry=log.map(x=>+x.label_first_try);real={n:log.length,res:Object.fromEntries(MODELS.map(([k])=>[k,metrics(log.map(x=>+x['p_'+k]),ry)]))};}
+  const sv=loadLog().filter(x=>x.event==='survey');
+  const bySess={};for(const x of loadLog()){const s=bySess[x.session]=bySess[x.session]||{pre:null,lv:[],mode:x.mode,shown:0};
+    if(x.event==='pretest_summary')s.pre=+x.pretest_weighted;if(x.event==='attempt'){s.lv.push(+x.level);if(+x.answer_shown===1)s.shown=1;}}
+  const pairs=Object.values(bySess).filter(s=>s.pre!==null&&s.mode==='adaptive'&&!s.shown&&s.lv.length>=6).map(s=>[s.pre,s.lv.slice(-6).reduce((a,b)=>a+b,0)/6]);
+  const realMatch={n:pairs.length,r:pairs.length>=3?pearson(pairs.map(p=>p[0]),pairs.map(p=>p[1])):NaN,pairs};
+  return{seed,all,bands,bandNames:BANDS.map(b=>b[0]),bandN,policy,real,realMatch,survey:sv,data:[...M.tr,...M.va],nTrain:M.tr.length,nTest:te.length,base:ys.reduce((s,v)=>s+v,0)/ys.length,ms:performance.now()-t0};
+}
+const f3=v=>isNaN(v)?'–':v.toFixed(3);
+function table(head,rows,bestCols){
+  const best={};for(const ci in bestCols){const vals=rows.map(r=>r[ci]).filter(v=>typeof v==='number'&&!isNaN(v));best[ci]=bestCols[ci]==='max'?Math.max(...vals):Math.min(...vals);}
+  return`<div class="tscroll"><table class="ev"><thead><tr>${head.map((h,i)=>`<th class="${i?'n':''}">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((v,i)=>
+    i===0?`<td>${v}</td>`:`<td class="n${bestCols[i]&&v===best[i]?' best':''}">${typeof v==='number'?f3(v):v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function renderEval(){
+  const E=EVAL;
+  let h=`<h3>1 · Prediction performance</h3><p class="note" style="margin-top:0">${E.nTest.toLocaleString()} test attempts from simulated learners the models never saw. Label = solved on the first try without a hint. Brier score: lower is better.</p>`;
+  h+=table(['Model','Accuracy','Precision','Recall','F1-score','AUC','Brier ↓'],MODELS.map(([k,n])=>{const m=E.all[k];return[n,m.acc,m.prec,m.rec,m.f1,m.auc,m.brier];}),{1:'max',2:'max',3:'max',4:'max',5:'max',6:'min'});
+  h+=`<h3>2 · By challenge difficulty (AUC)</h3><p class="note" style="margin-top:0">Does the model still predict well on hard generated challenges? Attempts: ${E.bandN.join(' / ')}.</p>`;
+  h+=table(['Model',...E.bandNames],MODELS.map(([k,n])=>[n,...E.bands[k].map(m=>m.auc)]),{1:'max',2:'max',3:'max'});
+  h+=`<h3>3 · Does the difficulty match the learner?</h3><p class="note" style="margin-top:0">150 new simulated learners play 21 challenges under each policy. <b>Rule-based staircase</b> = fixed step-up/step-down rules; <b>MLP-driven</b> = the MLP scores generated candidates and serves the one closest to 85%, with no step-up rules. <b>Skill match</b> = correlation between each learner's actual skill and the level the game ended up giving them (higher = the game finds the right level for each learner).</p>`;
+  h+=table(['Policy','First-try success','Distance from 85% ↓','Average level','Skill match (r)'],E.policy.map(p=>[p.label,pc(p.rate),pc(p.gap),p.avgLv.toFixed(2),isNaN(p.match)?'none (same for all)':p.match]),{4:'max'});
+  if(E.real){h+=`<h3>4 · Logged play on this device (real attempts)</h3><p class="note" style="margin-top:0">${E.real.n} attempts. Each prediction was made before the player answered. Rooms where "show answer" was on are left out.</p>`;
+    h+=table(['Model','Accuracy','F1-score','AUC','Brier ↓'],MODELS.map(([k,n])=>{const m=E.real.res[k];return[n,m.acc,m.f1,m.auc,m.brier];}),{1:'max',2:'max',3:'max',4:'min'});}
+  else h+=`<h3>4 · Logged play on this device</h3><p class="note" style="margin-top:0">Play at least 10 challenges (without "show answer") and run this again to also score the models on real attempts.</p>`;
+  if(E.survey.length){const c=[1,2,3,4,5].map(v=>E.survey.filter(s=>+s.survey_rating===v).length);
+    h+=`<h3>5 · Player difficulty survey (this device)</h3><p class="note" style="margin-top:0">After each boss, players rate the floor from 1 (too easy) to 5 (too hard). 3 = just right.</p>`;
+    h+=table(['Responses','1 Too easy','2 Easy','3 Just right','4 Hard','5 Too hard'],[[String(E.survey.length),...c.map(String)]],{});}
+  {const R=E.realMatch;h+=`<h3>6 · Skill match with real players (this device)</h3><p class="note" style="margin-top:0">For each adaptive run with a pre-test: the pre-test score (weighted by item level) vs. the average level the game gave in the last 6 challenges. A positive correlation means stronger students got harder challenges.</p>`;
+    h+=R.n>=3?table(['Runs','Correlation (r)'],[[String(R.n),f3(R.r)]],{}):`<p class="muted">Needs at least 3 adaptive runs with a pre-test and 6+ challenges (now: ${R.n}).</p>`;}
+  h+=`<div class="row"><button class="btn ghost" id="btnEvalCsv">Download results (CSV)</button><button class="btn ghost" id="btnDataCsv">Download simulated dataset (CSV)</button></div>
+  <p class="note">Seed ${E.seed} · ${E.nTrain.toLocaleString()} training / ${E.nTest.toLocaleString()} test attempts · first-try success in the test data ${pc(E.base)} · ran in ${(E.ms/1000).toFixed(1)} s.
+  These numbers come from simulated learners, so they show that the pipeline works, not how real students behave. Thesis 2 replaces them with real gameplay, a pre-test and the difficulty survey.</p>`;
+  $('evalOut').innerHTML=h;
+  $('btnEvalCsv').onclick=()=>{const rows=[];
+    for(const[k,n]of MODELS){const m=E.all[k];rows.push({section:'prediction',subset:'all',model:n,n:m.n,accuracy:f3(m.acc),precision:f3(m.prec),recall:f3(m.rec),f1:f3(m.f1),auc:f3(m.auc),brier:f3(m.brier)});
+      E.bands[k].forEach((b,i)=>rows.push({section:'prediction',subset:E.bandNames[i],model:n,n:b.n,accuracy:f3(b.acc),precision:f3(b.prec),recall:f3(b.rec),f1:f3(b.f1),auc:f3(b.auc),brier:f3(b.brier)}));}
+    for(const p of E.policy)rows.push({section:'policy',subset:'',model:p.label,n:150,success_rate:f3(p.rate),distance_from_target:f3(p.gap),avg_level:p.avgLv.toFixed(3),skill_match_r:f3(p.match)});
+    downloadCsv(rows,`evaluation_seed${E.seed}.csv`);};
+  $('btnDataCsv').onclick=()=>downloadCsv(E.data.map(x=>({learner:x.learner,split:x.learner%5===0?'test':'train',t:x.t,level:x.D,concept:x.concept,lines:x.feat.lines,depth:x.feat.depth,loops:x.feat.loops,steps:x.feat.steps,has_list:x.feat.hasList,
+    ...Object.fromEntries(FEATS.map(([k],i)=>[k,x.x[i].toFixed(4)])),label_first_try:x.y,solved:x.solved,attempts:x.attempts,hints_used:x.hint,time_frac:x.tfrac.toFixed(3)})),`simulated_dataset_seed${E.seed}.csv`);
+}
+// initial panel
+(function(){S={hist:[],bkt:{},ev:[],mode:'adaptive'};const cands={};for(const d of[1,2]){const ch=makeChallenge(d);ch.pred=predictFor([],ch);cands[d]=ch;}renderPanel(cands[1],cands,'');S=null;renderMetrics();})();
+
+</script>
+</body>
+</html>

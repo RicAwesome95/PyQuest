@@ -1,0 +1,196 @@
+</style>
+
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="main">
+    <!-- TITLE -->
+    <div id="scrTitle" class="card">
+      <h1 class="gameName"></h1>
+      <div class="muted">An adaptive Python code dungeon. Trace the code to cast your spell, defeat the monsters, beat the bosses.</div>
+      <p>Every challenge is <b>generated on the spot</b> from code templates, at any level from 1 to 15. A small neural network (MLP) watches how you play and predicts whether you will solve a challenge on your <b>first try without a hint</b>. In <b>Adaptive</b> mode the game generates challenges where it expects about an <b>85%</b> chance of success, so strong players get harder and harder code and struggling players get easier code.</p>
+      <p class="muted" style="margin-top:-6px">3 floors · each floor has 4 monster rooms and a boss · the right output casts your spell, a wrong one lets the monster hit you (5 hearts) · fast answers land critical hits, first-try streaks build a combo · earn coins and XP, then spend coins at the camp between floors.</p>
+      <div class="label">Mode</div>
+      <div class="seg" id="segMode">
+        <button class="sel" data-v="adaptive"><b>Adaptive (MLP)</b><small>Challenges generated for your level</small></button>
+        <button data-v="fixed"><b>Fixed</b><small>Difficulty rises on a set schedule</small></button>
+      </div>
+      <div class="label">Participant code (optional, for the study)</div>
+      <input class="txt" id="participant" placeholder="e.g. P07" maxlength="20">
+      <label class="chk"><input type="checkbox" id="chkPretest" checked> Take the pre-test first (15 questions, about 10 minutes; required for study participants)</label>
+      <label class="chk"><input type="checkbox" id="chkPanel" checked> Show the AI panel (what the model is thinking)</label>
+      <label class="chk"><input type="checkbox" id="chkRevealTitle"> Show the correct answer (demo mode; flagged in the log)</label>
+      <div class="row">
+        <button class="btn" id="btnStart">Enter the dungeon</button>
+        <button class="btn ghost" id="btnEval">Thesis evaluation</button>
+      </div>
+      <p class="note">2 tries and 1 hint per challenge (the hint removes a wrong option and shows a tip). Keys: A–D or 1–4 to answer, H for a hint. Every attempt and survey answer is logged and can be downloaded as a CSV.</p>
+    </div>
+
+    <!-- GAME -->
+    <div id="scrGame" class="hidden">
+      <div class="hud">
+        <span class="pill" id="hudFloor"></span>
+        <span class="pill" id="hudTopic"></span>
+        <span class="pill hearts" id="hudHearts"></span>
+        <span class="pill" id="hudShield" title="A shield blocks the next lost heart">🛡 <b id="hudShieldN">0</b></span>
+        <span class="pill" title="Coins: spend them at the camp between floors">🪙 <b id="hudCoins">0</b></span>
+        <span class="pill">Score <b id="hudScore">0</b></span>
+        <button class="pill toggle" id="btnMute" title="Sound on/off">🔊</button>
+        <label class="pill toggle"><input type="checkbox" id="chkReveal"> Show answer</label>
+      </div>
+      <div class="scene" id="scene">
+        <div class="wallbricks"></div>
+        <div class="torch" style="left:28%"></div><div class="torch" style="left:62%"></div>
+        <div class="floor"></div>
+        <div class="map" id="map"></div>
+        <div class="rankbox"><span id="rankTxt">Rank 1</span><div class="xp"><i id="xpBar"></i></div></div>
+        <div class="combo" id="combo"></div>
+        <div class="lives" id="lives"></div>
+        <svg class="hero" id="hero" viewBox="0 0 54 64" aria-hidden="true">
+          <rect x="11" y="6" width="32" height="24" rx="6" fill="#7cd4a8"/>
+          <rect x="17" y="13" width="7" height="7" rx="2" fill="#12141c"/>
+          <rect x="30" y="13" width="7" height="7" rx="2" fill="#12141c"/>
+          <rect x="25" y="0" width="4" height="7" fill="#7cd4a8"/><circle cx="27" cy="1" r="3" fill="#f2c14e"/>
+          <rect x="14" y="32" width="26" height="20" rx="4" fill="#5aa886"/>
+          <rect x="21" y="37" width="12" height="6" rx="2" fill="#f2c14e"/>
+          <rect x="16" y="52" width="8" height="12" rx="2" fill="#4a8f72"/>
+          <rect x="30" y="52" width="8" height="12" rx="2" fill="#4a8f72"/>
+          <rect x="40" y="30" width="5" height="18" rx="2" fill="#f2c14e"/><circle cx="42.5" cy="29" r="4.5" fill="#79a8ff"/>
+        </svg>
+        <div class="shieldfx" id="shieldFx">🛡</div>
+        <div class="enemy" id="enemy"><div class="ename" id="eName"></div><div class="ehp" id="eHp"></div><div class="ebody" id="eBody"></div></div>
+        <div class="fx" id="fx"></div>
+        <div class="toast" id="toast"></div>
+      </div>
+      <div class="card">
+        <div class="qrow">
+          <div class="q" id="qText">What does this Python code print?</div>
+          <button class="btn ghost small" id="btnHint">💡 Hint (H)</button>
+        </div>
+        <div class="tlabel"><span id="tLabel">⚔ The enemy attacks in</span><b id="tSecs"></b></div>
+        <div class="timer"><i id="timerBar"></i></div>
+        <pre class="code" id="code"></pre>
+        <div class="tip hidden" id="tip"></div>
+        <div class="opts" id="opts"></div>
+      </div>
+    </div>
+
+    <!-- PRE-TEST -->
+    <div id="scrPre" class="card hidden">
+      <h1>Pre-<span>test</span></h1>
+      <div class="muted" id="preInfo"></div>
+      <div class="timer"><i id="preBar"></i></div>
+      <div class="q">What does this Python code print?</div>
+      <pre class="code" id="preCode" style="margin-top:10px"></pre>
+      <div class="popts" id="preOpts"></div>
+      <div class="row"><button class="btn ghost small" id="btnPreSkip">I don't know (skip)</button></div>
+      <p class="note">Every player gets the same 15 questions, one per level, from easy to hard. No hints and no score is shown. The game never sees these answers: they are only used later to check whether the game gave you the right difficulty.</p>
+    </div>
+
+    <!-- END -->
+    <div id="scrEnd" class="card hidden">
+      <h1 id="endTitle">Run <span>complete</span></h1>
+      <div class="muted" id="endMode"></div>
+      <div class="stats">
+        <div class="stat"><b id="stScore">0</b>score</div>
+        <div class="stat"><b id="stRate">0%</b>first-try success (target 85%)</div>
+        <div class="stat"><b id="stLevel">0</b>highest level cleared</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="stSolved">0%</b>solved with retries</div>
+        <div class="stat"><b id="stHints">0</b>hints used</div>
+        <div class="stat"><b id="stPre">–</b>pre-test score</div>
+        <div class="stat"><b id="stSurvey">–</b>your difficulty rating (3 = just right)</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="stRank">1</b>rank reached</div>
+        <div class="stat"><b id="stKills">0</b>monsters defeated</div>
+        <div class="stat"><b id="stCombo">0</b>best combo</div>
+      </div>
+      <div class="label">Badges</div>
+      <div class="badges" id="badges"></div>
+      <div class="label">Prediction accuracy this run</div>
+      <div class="stats four">
+        <div class="stat"><b id="stMlp">–</b>MLP</div>
+        <div class="stat"><b id="stLr">–</b>Logistic regression</div>
+        <div class="stat"><b id="stBkt">–</b>BKT</div>
+        <div class="stat"><b id="stRule">–</b>Rule-based</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnAgain">Play again</button>
+        <button class="btn ghost" id="btnCsv">Download this run (CSV)</button>
+        <button class="btn ghost" id="btnCsvAll">Download all runs on this device (CSV)</button>
+        <button class="btn ghost" id="btnEval2">Thesis evaluation</button>
+      </div>
+      <p class="note">A prediction counts as correct when the model's guess (P ≥ 0.5 → "will solve on the first try") matches what happened. One run is too short to judge the models; the thesis evaluates them on the full logged dataset.</p>
+    </div>
+
+    <!-- EVALUATION -->
+    <div id="scrEval" class="card hidden">
+      <h1>Thesis <span>evaluation</span></h1>
+      <div class="muted">MLP vs. logistic regression vs. Bayesian Knowledge Tracing vs. a rule-based method, on generated Python challenges.</div>
+      <div class="box">
+        <b>Setup.</b> Simulated learners only (allowed for Thesis 1): 320 learners with different skill levels play 30 generated challenges each, under a mix of difficulty policies.
+        Learners are split 80/20 into train and test. Every model gets the same features, the same split and the same metrics.
+        Thesis 2 repeats these tests on real gameplay, plus a pre-test and the in-game difficulty survey to check that the difficulty matches each student.
+      </div>
+      <div class="row">
+        <button class="btn" id="btnRunEval">Run evaluation</button>
+        <button class="btn ghost" id="btnEvalBack">Back</button>
+        <span class="muted" id="evalStatus"></span>
+      </div>
+      <div id="evalOut"></div>
+    </div>
+  </div>
+
+  <!-- AI PANEL -->
+  <div class="side" id="side">
+    <div class="card">
+      <h2>Generated candidates</h2>
+      <table>
+        <thead><tr><th>Lv</th><th>Code</th><th>MLP P(solve)</th><th></th><th title="Logistic regression">LR</th><th>BKT</th><th>Rule</th></tr></thead>
+        <tbody id="predBody"></tbody>
+      </table>
+      <div class="note"><span style="color:var(--accent2)">│</span> = 85% target. Highlighted row = challenge served. <span id="whyNote"></span></div>
+    </div>
+    <div class="card">
+      <h2>Input features</h2>
+      <div class="feat" id="featBox"></div>
+    </div>
+    <div class="card">
+      <h2>How well it's predicting</h2>
+      <div id="metricBox"></div>
+      <div class="note" id="pretrainNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SURVEY -->
+<div class="modal hidden" id="survey">
+  <div class="card">
+    <h2>Boss defeated! Floor <span id="surveyFloor"></span> cleared</h2>
+    <p>How difficult were the challenges on this floor <b>for you</b>?</p>
+    <div class="rates">
+      <button class="rate" data-v="1"><b>1</b>Too easy</button>
+      <button class="rate" data-v="2"><b>2</b>Easy</button>
+      <button class="rate" data-v="3"><b>3</b>Just right</button>
+      <button class="rate" data-v="4"><b>4</b>Hard</button>
+      <button class="rate" data-v="5"><b>5</b>Too hard</button>
+    </div>
+    <p class="note">Your answer helps check whether the game matches each player's skill level.</p>
+  </div>
+</div>
+
+<!-- CAMP / SHOP -->
+<div class="modal hidden" id="shop">
+  <div class="card">
+    <h2>🔥 Camp before floor <span id="shopFloor"></span></h2>
+    <p>You rest by the fire. A merchant offers supplies. You have <b>🪙 <span id="shopCoins"></span></b>.</p>
+    <div class="shopgrid" id="shopGrid"></div>
+    <div class="row"><button class="btn" id="btnShopGo">Descend to the next floor</button></div>
+  </div>
+</div>
+<div class="banner hidden" id="banner"></div>
+
+<script>
